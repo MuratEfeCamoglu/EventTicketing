@@ -34,26 +34,18 @@ public sealed class PostgresFixture : IAsyncLifetime
         await ExecuteOnServerAsync($"CREATE DATABASE \"{_databaseName}\"");
     }
 
-    /// <summary>Deletes all rows (Respawn). Until the schema has tables (M2 adds the first migration) there is nothing to reset.</summary>
+    /// <summary>Deletes all rows (Respawn). The schema must exist: the API host migrates the database on startup.</summary>
     public async Task ResetAsync()
     {
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
 
-        if (_respawner is null)
+        _respawner ??= await Respawner.CreateAsync(connection, new RespawnerOptions
         {
-            if (!await HasTablesAsync(connection))
-            {
-                return;
-            }
-
-            _respawner = await Respawner.CreateAsync(connection, new RespawnerOptions
-            {
-                DbAdapter = DbAdapter.Postgres,
-                SchemasToInclude = ["public"],
-                TablesToIgnore = ["__EFMigrationsHistory"],
-            });
-        }
+            DbAdapter = DbAdapter.Postgres,
+            SchemasToInclude = ["public"],
+            TablesToIgnore = ["__EFMigrationsHistory"],
+        });
 
         await _respawner.ResetAsync(connection);
     }
@@ -61,14 +53,6 @@ public sealed class PostgresFixture : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await ExecuteOnServerAsync($"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)");
-    }
-
-    private static async Task<bool> HasTablesAsync(NpgsqlConnection connection)
-    {
-        await using var command = new NpgsqlCommand(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name <> '__EFMigrationsHistory')",
-            connection);
-        return (bool)(await command.ExecuteScalarAsync())!;
     }
 
     private async Task ExecuteOnServerAsync(string sql)

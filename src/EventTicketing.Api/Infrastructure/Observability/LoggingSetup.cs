@@ -8,11 +8,15 @@ public static class LoggingSetup
     private const string DevelopmentTemplate =
         "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}";
 
-    /// <summary>Serilog console logging (ISKELET §5.15): readable text in Development, JSON elsewhere.</summary>
+    /// <summary>
+    /// Serilog console logging (ISKELET §5.15): readable text in Development, JSON elsewhere.
+    /// The static <c>Log.Logger</c> is left untouched so that several hosts in one process (tests) do not share a logger.
+    /// </summary>
     public static WebApplicationBuilder AddLogging(this WebApplicationBuilder builder)
     {
         var isDevelopment = builder.Environment.IsDevelopment();
-        builder.Services.AddSerilog((services, configuration) =>
+        builder.Services.AddSerilog(
+            (services, configuration) =>
         {
             configuration
                 .ReadFrom.Configuration(builder.Configuration)
@@ -28,8 +32,16 @@ public static class LoggingSetup
             {
                 configuration.WriteTo.Console(new CompactJsonFormatter());
             }
-        });
+        },
+            preserveStaticLogger: true);
 
         return builder;
+    }
+
+    /// <summary>One log line per request (AC-18.1), written through this host's logger rather than the static one.</summary>
+    public static WebApplication UseRequestLogging(this WebApplication app)
+    {
+        app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
+        return app;
     }
 }

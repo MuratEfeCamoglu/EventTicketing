@@ -10,6 +10,9 @@ trim_trailing_whitespace = true
 [*.{json,props,targets,csproj,slnx,xml,yml,yaml}]
 indent_size = 2
 
+[src/**/Migrations/*.cs]
+generated_code = true
+
 [*.md]
 trim_trailing_whitespace = false
 

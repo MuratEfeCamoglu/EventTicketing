@@ -12,6 +12,8 @@ namespace EventTicketing.IntegrationTests.Fixtures;
 public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string EnvironmentName = "Testing";
+    public const string AdminEmail = "admin@example.com";
+    public const string AdminPassword = "Dev-only-Passw0rd";
 
     public PostgresFixture Postgres { get; } = new();
 
@@ -38,6 +40,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Postgres", Postgres.ConnectionString);
+        builder.UseSetting("Database:MigrateOnStartup", "true");
+        builder.UseSetting("Seed:AdminEmail", AdminEmail);
+        builder.UseSetting("Seed:AdminPassword", AdminPassword);
+        builder.UseSetting("Seed:SampleData", "false");
         builder.UseSetting("RateLimiting:Enabled", "false");
         builder.UseSetting("MockPayment:LatencyMs", "0");
 

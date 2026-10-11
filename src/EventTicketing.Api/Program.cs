@@ -1,12 +1,13 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Infrastructure.Observability;
+using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
 using Scalar.AspNetCore;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddLogging();
+builder.AddPersistence();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemDetailsSetup.Customize);
@@ -17,7 +18,9 @@ builder.Services.AddFeatureSlices(typeof(Program).Assembly);
 
 var app = builder.Build();
 
-app.UseSerilogRequestLogging();
+await app.InitializeDatabaseAsync();
+
+app.UseRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -29,6 +32,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapFeatureEndpoints();
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program;

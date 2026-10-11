@@ -1,0 +1,27 @@
+namespace EventTicketing.Api.Domain;
+
+public sealed class Venue
+{
+    private Venue()
+    {
+    }
+
+    public Venue(string name, string city, string address, DateTimeOffset createdAt)
+    {
+        Id = Guid.CreateVersion7(createdAt);
+        Name = name;
+        City = city;
+        Address = address;
+        CreatedAt = createdAt;
+    }
+
+    public Guid Id { get; private set; }
+
+    public string Name { get; private set; } = null!;
+
+    public string City { get; private set; } = null!;
+
+    public string Address { get; private set; } = null!;
+
+    public DateTimeOffset CreatedAt { get; private set; }
+}

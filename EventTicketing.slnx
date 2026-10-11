@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EventTicketing.Api/EventTicketing.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EventTicketing.IntegrationTests/EventTicketing.IntegrationTests.csproj" />
+    <Project Path="tests/EventTicketing.UnitTests/EventTicketing.UnitTests.csproj" />
+  </Folder>
+</Solution>

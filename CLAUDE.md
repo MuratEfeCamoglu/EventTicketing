@@ -7,8 +7,8 @@ QR'lı bilet ve e-posta alır. Odak; eşzamanlı koltuk alımı, ödeme akışı
 - Agent yetkileri, görev döngüsü, "bitti" tanımı → **AGENT.md**
 - Bu dosya: yığın, komutlar, kod ve çalışma kuralları.
 
-**Durum:** Kod henüz yok. İlk görev ISKELET.md §9 **M1**. Aşağıdaki komutlar M1'den sonra geçerlidir;
-aşama etiketi olanlar o aşamadan itibaren çalışır.
+**Durum:** M1 (iskelet) tamam; sıradaki görev ISKELET.md §9'daki ilk işaretsiz kutu. Aşama etiketi olan komutlar
+o aşamadan itibaren çalışır.
 
 ## Teknoloji yığını
 - .NET 10 (`net10.0`, C# 14), ASP.NET Core Minimal API, Vertical Slice (ISKELET §5.1, §5.3)

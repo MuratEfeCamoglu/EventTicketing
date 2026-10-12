@@ -633,7 +633,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 - [x] **M1 İskelet:** git deposu (`git init -b main`, `.gitignore`, `LICENSE`, bu üç doküman ilk commit), solution, `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, `.config/dotnet-tools.json`, API + iki test projesi; Serilog; ProblemDetails + `GlobalExceptionHandler`; `Result`/`Error`; `IEndpoint` keşfi; `ValidationFilter`; `/api/v1` route grubu; OpenAPI + Scalar; integration test altyapısı (`ApiFactory`, `PostgresFixture`, Respawn, `AuthHelper`); `docs/decisions.md`. *Çıkış:* `dotnet build -c Release` 0 uyarı; `GET /openapi/v1.json` → 200 integration testi geçer; AC-18.1 testi geçer.
 - [x] **M2 Veri modeli:** §6'daki tüm MVP tabloları, entity konfigürasyonları, `InitialCreate` migration'ı, seed (Admin + `Seed:SampleData`). *Çıkış:* boş DB'ye migration uygulanır; AC-03.5 ve AC-10.7 testleri geçer.
 - [x] **M3 Auth:** F-01, F-02, F-03 (AC-03.1 matrisi o ana kadar var olan endpoint'lerle; her yeni endpoint matrise eklenir). AC-18.4.
-- [ ] **M4 Mekân/salon:** F-04.
+- [x] **M4 Mekân/salon:** F-04.
 - [ ] **M5 Etkinlik:** F-05, F-06, F-07.
 - [ ] **M6 Rezervasyon:** F-08, AC-09.1, AC-09.2, AC-13.2, `GET /me/reservations`.
 - [ ] **M7 Ödeme ve bilet:** F-10, F-11, `GET /me/tickets`.

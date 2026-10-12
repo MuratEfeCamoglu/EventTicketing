@@ -20,6 +20,14 @@ public static class DomainErrors
         public static readonly Error CannotAssignAdmin = new("user.cannot_assign_admin", "The Admin role cannot be assigned or removed through the API.");
     }
 
+    public static class Halls
+    {
+        public static readonly Error NameTaken = new(
+            ErrorCodes.ValidationFailed,
+            "The venue already has a hall with this name.",
+            new Dictionary<string, object?> { ["errors"] = new Dictionary<string, string[]> { ["name"] = ["The venue already has a hall with this name."] } });
+    }
+
     public static class Events
     {
         public static readonly Error InvalidState = new("event.invalid_state", "The event's state does not allow this operation.");

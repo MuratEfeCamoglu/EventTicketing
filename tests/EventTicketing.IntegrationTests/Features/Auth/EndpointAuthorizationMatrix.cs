@@ -13,6 +13,9 @@ public static class EndpointAuthorizationMatrix
     public static readonly IReadOnlyList<ProtectedEndpoint> Protected =
     [
         new("PUT", "/api/v1/admin/users/{id}/role", [UserRole.Admin]),
+        new("POST", "/api/v1/venues", [UserRole.Admin]),
+        new("PUT", "/api/v1/venues/{id}", [UserRole.Admin]),
+        new("POST", "/api/v1/venues/{id}/halls", [UserRole.Admin]),
     ];
 
     public static readonly IReadOnlyList<(string Method, string Route)> Anonymous =
@@ -21,6 +24,9 @@ public static class EndpointAuthorizationMatrix
         ("POST", "/api/v1/auth/login"),
         ("POST", "/api/v1/auth/refresh"),
         ("POST", "/api/v1/auth/logout"),
+        ("GET", "/api/v1/venues"),
+        ("GET", "/api/v1/venues/{id}"),
+        ("GET", "/api/v1/halls/{id}"),
     ];
 
     /// <summary>Route with every <c>{parameter}</c> replaced by a fresh id.</summary>

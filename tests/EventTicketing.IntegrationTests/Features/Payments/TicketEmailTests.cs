@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Sockets;
 using EventTicketing.Api.Domain;
 using EventTicketing.IntegrationTests.Fixtures;
-using Microsoft.AspNetCore.Hosting;
 using Serilog.Events;
 
 namespace EventTicketing.IntegrationTests.Features.Payments;

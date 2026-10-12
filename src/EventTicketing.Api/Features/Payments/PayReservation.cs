@@ -1,7 +1,10 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Email;
+using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
+using EventTicketing.Api.Infrastructure.Qr;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +35,7 @@ public static class PayReservation
             .WithMessage($"Payment token must be one of: {string.Join(", ", MockPaymentGateway.SupportedTokens)}.");
     }
 
-    public sealed class Handler(AppDbContext db, IPaymentGateway gateway, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, IPaymentGateway gateway, IEmailSender email, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result<Response>> HandleAsync(Guid reservationId, Guid userId, Guid idempotencyKey, Request request, CancellationToken cancellationToken)
         {
@@ -62,7 +65,49 @@ public static class PayReservation
             }
 
             var confirmed = await TryConfirmAsync(reservation, idempotencyKey, charge, cancellationToken);
-            return confirmed ?? await RefundAsync(reservation, idempotencyKey, charge, cancellationToken);
+            if (confirmed is null)
+            {
+                return await RefundAsync(reservation, idempotencyKey, charge, cancellationToken);
+            }
+
+            await SendTicketsAsync(reservation.Id, reservation.UserId, confirmed.Tickets, cancellationToken);
+            return confirmed;
+        }
+
+        /// <summary>
+        /// Best effort after the commit (ISKELET §5.7, F-12): a failure is logged and the payment response stays 200
+        /// (AC-12.2). An e-mail lost here is accepted in the MVP (R-11); V3-2 moves it behind the outbox.
+        /// </summary>
+        private async Task SendTicketsAsync(Guid reservationId, Guid userId, IReadOnlyList<TicketDto> tickets, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var details = await (
+                        from r in db.Reservations.AsNoTracking()
+                        join e in db.Events on r.EventId equals e.Id
+                        join h in db.Halls on e.HallId equals h.Id
+                        join u in db.Users on r.UserId equals u.Id
+                        where r.Id == reservationId
+                        select new { e.Title, e.StartsAt, HallName = h.Name, u.Email, u.FullName })
+                    .SingleAsync(cancellationToken);
+
+                var lines = tickets.Select(t => $"- {t.SeatLabel}: {t.Code}");
+                var message = new EmailMessage(
+                    details.Email,
+                    details.FullName,
+                    $"Your tickets for {details.Title}",
+                    $"Hello {details.FullName},{Environment.NewLine}{Environment.NewLine}"
+                        + $"{details.Title} · {details.StartsAt:u} · {details.HallName}{Environment.NewLine}"
+                        + string.Join(Environment.NewLine, lines),
+                    tickets.Select(t => new EmailAttachment($"ticket-{t.SeatLabel}.png", "image/png", QrCodeGenerator.GeneratePng(Ticket.QrContent(t.Code)))).ToList());
+
+                await email.SendAsync(message, cancellationToken);
+                logger.LogInformation("Ticket e-mail for reservation {ReservationId} sent to {Email}", reservationId, LogMasking.MaskEmail(details.Email));
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Ticket e-mail for reservation {ReservationId} of user {UserId} could not be sent", reservationId, userId);
+            }
         }
 
         /// <summary>Step 5: payment, confirmation, sold seats and tickets in one transaction; null when the confirmation lost a race.</summary>

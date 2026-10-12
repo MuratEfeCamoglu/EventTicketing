@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Auth;
+using EventTicketing.Api.Infrastructure.Email;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
@@ -14,6 +15,7 @@ builder.AddLogging();
 builder.AddPersistence();
 builder.AddAuth();
 builder.AddPayments();
+builder.AddEmail();
 
 builder.Services.AddOptions<ReservationOptions>()
     .BindConfiguration(ReservationOptions.Section)

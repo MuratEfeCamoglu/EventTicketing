@@ -2,6 +2,28 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace EventTicketing.Api.Common;
 
+/// <summary>Outcome of an operation without a value (e.g. 204 responses).</summary>
+public sealed class Result
+{
+    private static readonly Result SuccessResult = new(null);
+
+    private Result(Error? error)
+    {
+        Error = error;
+    }
+
+    [MemberNotNullWhen(false, nameof(Error))]
+    public bool IsSuccess => Error is null;
+
+    public Error? Error { get; }
+
+    public static Result Success() => SuccessResult;
+
+    public static Result Failure(Error error) => new(error);
+
+    public static implicit operator Result(Error error) => Failure(error);
+}
+
 public sealed class Result<T>
 {
     private readonly T? _value;

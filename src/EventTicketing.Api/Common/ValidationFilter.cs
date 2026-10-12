@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -15,8 +16,14 @@ public sealed class ValidationFilter<T>(IValidator<T> validator) : IEndpointFilt
         }
 
         var result = await validator.ValidateAsync(request, context.HttpContext.RequestAborted);
-        return result.IsValid ? await next(context) : ValidationProblem(result.ToDictionary());
+        return result.IsValid ? await next(context) : ValidationProblem(ToCamelCaseKeys(result.ToDictionary()));
     }
+
+    /// <summary>Error keys follow the JSON field names (<c>Sections[0].Name</c> → <c>sections[0].name</c>), as AC-01.3 expects <c>errors.password</c>.</summary>
+    private static Dictionary<string, string[]> ToCamelCaseKeys(IDictionary<string, string[]> errors) =>
+        errors.ToDictionary(
+            e => string.Join('.', e.Key.Split('.').Select(JsonNamingPolicy.CamelCase.ConvertName)),
+            e => e.Value);
 
     private static ProblemHttpResult ValidationProblem(IDictionary<string, string[]> errors)
     {

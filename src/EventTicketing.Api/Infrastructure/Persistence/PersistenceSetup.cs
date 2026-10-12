@@ -1,7 +1,5 @@
 using EventTicketing.Api.Common;
-using EventTicketing.Api.Domain;
 using EventTicketing.Api.Infrastructure.Persistence.Seed;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -31,7 +29,6 @@ public static class PersistenceSetup
             .UseNpgsql(services.GetRequiredService<IOptions<ConnectionStringOptions>>().Value.Postgres)
             .UseSnakeCaseNamingConvention());
 
-        builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
         builder.Services.AddScoped<DatabaseInitializer>();
 
         return builder;

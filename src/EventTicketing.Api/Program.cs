@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using EventTicketing.Api.Common;
+using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
@@ -8,8 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddLogging();
 builder.AddPersistence();
+builder.AddAuth();
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemDetailsSetup.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
@@ -23,6 +27,8 @@ await app.InitializeDatabaseAsync();
 app.UseRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapOpenApi();
 if (app.Environment.IsDevelopment())

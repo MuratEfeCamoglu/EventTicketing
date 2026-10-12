@@ -14,6 +14,30 @@ public sealed class DomainModelTests
         user.Email.ShouldBe("ayse.yilmaz@example.com");
     }
 
+    [Theory]
+    [InlineData(UserRole.Customer, UserRole.Organizer)]
+    [InlineData(UserRole.Organizer, UserRole.Customer)]
+    public void User_ChangeRole_BetweenCustomerAndOrganizer_Succeeds(UserRole from, UserRole to)
+    {
+        var user = new User("u@example.com", "U", from, Now);
+
+        user.ChangeRole(to).IsSuccess.ShouldBeTrue();
+
+        user.Role.ShouldBe(to);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Customer, UserRole.Admin)]
+    [InlineData(UserRole.Admin, UserRole.Customer)]
+    public void User_ChangeRole_IntoOrOutOfAdmin_ReturnsCannotAssignAdmin(UserRole from, UserRole to)
+    {
+        var user = new User("u@example.com", "U", from, Now);
+
+        user.ChangeRole(to).Error!.Code.ShouldBe("user.cannot_assign_admin");
+
+        user.Role.ShouldBe(from);
+    }
+
     [Fact]
     public void Hall_AddRow_NumbersSeatsFromOnePerRow()
     {

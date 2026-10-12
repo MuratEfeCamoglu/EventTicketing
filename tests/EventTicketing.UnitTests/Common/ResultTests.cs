@@ -23,4 +23,14 @@ public sealed class ResultTests
         result.Error.Code.ShouldBe("seat.unavailable");
         Should.Throw<InvalidOperationException>(() => result.Value);
     }
+
+    [Fact]
+    public void NonGeneric_SuccessAndFailure_ExposeError()
+    {
+        Result failure = new Error("resource.not_found", "Not found.");
+
+        Result.Success().IsSuccess.ShouldBeTrue();
+        failure.IsSuccess.ShouldBeFalse();
+        failure.Error.Code.ShouldBe("resource.not_found");
+    }
 }

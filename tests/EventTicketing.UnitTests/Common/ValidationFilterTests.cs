@@ -42,6 +42,6 @@ public sealed class ValidationFilterTests
         var problem = result.ShouldBeOfType<ProblemHttpResult>();
         problem.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         problem.ProblemDetails.Extensions["code"].ShouldBe("validation.failed");
-        problem.ProblemDetails.ShouldBeOfType<HttpValidationProblemDetails>().Errors.ShouldContainKey(nameof(SampleRequest.Name));
+        problem.ProblemDetails.ShouldBeOfType<HttpValidationProblemDetails>().Errors.ShouldContainKey("name");
     }
 }

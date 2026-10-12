@@ -1,3 +1,5 @@
+using EventTicketing.Api.Common;
+
 namespace EventTicketing.Api.Domain;
 
 public sealed class User
@@ -31,4 +33,16 @@ public sealed class User
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
     public void SetPasswordHash(string passwordHash) => PasswordHash = passwordHash;
+
+    /// <summary>Customer ↔ Organizer only; the Admin role is neither granted nor taken away through the API (AC-03.4).</summary>
+    public Result ChangeRole(UserRole role)
+    {
+        if (role == UserRole.Admin || Role == UserRole.Admin)
+        {
+            return DomainErrors.Users.CannotAssignAdmin;
+        }
+
+        Role = role;
+        return Result.Success();
+    }
 }

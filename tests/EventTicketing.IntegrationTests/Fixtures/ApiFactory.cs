@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -22,6 +23,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public CollectingLogSink Logs { get; } = new();
 
+    /// <summary>Generated per test run (ISKELET §5.14).</summary>
+    public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+
     public async ValueTask InitializeAsync() => await Postgres.InitializeAsync();
 
     public Task ResetAsync()
@@ -44,6 +48,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Seed:AdminEmail", AdminEmail);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
         builder.UseSetting("Seed:SampleData", "false");
+        builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("RateLimiting:Enabled", "false");
         builder.UseSetting("MockPayment:LatencyMs", "0");
 

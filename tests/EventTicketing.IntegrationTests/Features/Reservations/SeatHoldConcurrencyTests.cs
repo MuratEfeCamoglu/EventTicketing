@@ -1,0 +1,71 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using EventTicketing.Api.Domain;
+using EventTicketing.IntegrationTests.Fixtures;
+using Microsoft.EntityFrameworkCore;
+
+namespace EventTicketing.IntegrationTests.Features.Reservations;
+
+/// <summary>AC-08.3: 50 customers request the same seat at the same instant; exactly one wins, in each of 10 rounds.</summary>
+public sealed class SeatHoldConcurrencyTests(ApiFactory factory) : ApiTestBase(factory)
+{
+    private const int Customers = 50;
+    private const int Rounds = 10;
+
+    [Fact]
+    [Trait("AC", "AC-08.3")]
+    public async Task CreateReservation_FiftyParallelRequestsForSameSeat_ExactlyOneSucceeds()
+    {
+        var tokens = new List<string>();
+        for (var i = 0; i < Customers; i++)
+        {
+            tokens.Add((await Factory.CreateUserAndLoginAsync(Client, UserRole.Customer)).Tokens.AccessToken);
+        }
+
+        for (var round = 1; round <= Rounds; round++)
+        {
+            var (eventId, seatIds) = await Factory.CreateEventOnSaleAsync();
+            var seatId = seatIds[0];
+
+            var statuses = await SendAtOnceAsync(tokens, eventId, seatId);
+
+            statuses.Count(s => s == HttpStatusCode.Created).ShouldBe(1, $"round {round}");
+            statuses.Count(s => s == HttpStatusCode.Conflict).ShouldBe(Customers - 1, $"round {round}");
+            var pending = await WithDbAsync(db => db.ReservationSeats
+                .Where(rs => rs.EventSeatId == seatId)
+                .Join(db.Reservations, rs => rs.ReservationId, r => r.Id, (_, r) => r)
+                .CountAsync(r => r.Status == ReservationStatus.Pending, TestContext.Current.CancellationToken));
+            pending.ShouldBe(1, $"round {round}");
+        }
+    }
+
+    /// <summary>Every request waits on a <see cref="Barrier"/> in its own thread, so all 50 are released together (R-02).</summary>
+    private async Task<HttpStatusCode[]> SendAtOnceAsync(IReadOnlyList<string> tokens, Guid eventId, Guid seatId)
+    {
+        using var barrier = new Barrier(tokens.Count);
+        var requests = tokens.Select(token => Task.Factory.StartNew(
+                async () =>
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/events/{eventId}/reservations")
+                    {
+                        Content = JsonContent.Create(new { eventSeatIds = new[] { seatId } }),
+                    };
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    barrier.SignalAndWait(TestContext.Current.CancellationToken);
+                    using var response = await Client.SendAsync(request, TestContext.Current.CancellationToken);
+                    if (response.StatusCode == HttpStatusCode.Conflict)
+                    {
+                        await response.ShouldBeProblemAsync(HttpStatusCode.Conflict, "seat.unavailable");
+                    }
+
+                    return response.StatusCode;
+                },
+                TestContext.Current.CancellationToken,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).Unwrap())
+            .ToList();
+
+        return await Task.WhenAll(requests);
+    }
+}

@@ -145,6 +145,10 @@ public sealed class Event
         return Result.Success();
     }
 
+    /// <summary>Seats can be held while the event is Published and has not started (AC-08.6, V-09).</summary>
+    public static bool IsOnSale(EventStatus status, DateTimeOffset startsAt, DateTimeOffset now) =>
+        status == EventStatus.Published && startsAt > now;
+
     /// <summary>Only the event's organizer or an Admin may change it (AC-03.2).</summary>
     public Result EnsureCanBeChangedBy(Guid userId, bool isAdmin) =>
         isAdmin || userId == OrganizerId ? Result.Success() : DomainErrors.Events.NotOwner;

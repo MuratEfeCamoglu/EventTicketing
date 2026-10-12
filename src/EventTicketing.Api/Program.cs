@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using EventTicketing.Api.Common;
+using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Persistence;
@@ -11,6 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddLogging();
 builder.AddPersistence();
 builder.AddAuth();
+
+builder.Services.AddOptions<ReservationOptions>()
+    .BindConfiguration(ReservationOptions.Section)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

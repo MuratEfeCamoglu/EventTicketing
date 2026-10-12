@@ -15,6 +15,11 @@ public static class CancelEvent
     {
         public async Task<Result<EventResponse>> HandleAsync(Guid eventId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            // Exclusive row lock: seat holds take FOR SHARE on the event, so none can slip in between loading the
+            // Pending reservations below and committing the cancellation.
+            await db.Database.ExecuteSqlAsync($"SELECT 1 FROM events WHERE id = {eventId} FOR UPDATE", cancellationToken);
             var published = await db.Events.Include(e => e.SectionPrices).SingleOrDefaultAsync(e => e.Id == eventId, cancellationToken);
             if (published is null)
             {
@@ -56,6 +61,7 @@ public static class CancelEvent
             }
 
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             logger.LogInformation("Event {EventId} cancelled; {ReservationCount} pending reservations ended", eventId, pending.Count);
             return EventResponse.From(published);
         }

@@ -55,6 +55,20 @@ public sealed class EventSeat
         return Result.Success();
     }
 
+    /// <summary>Held for <paramref name="reservationId"/> → Sold (ISKELET §5.7 step 5).</summary>
+    public Result Sell(Guid reservationId)
+    {
+        if (Status != EventSeatStatus.Held || HoldReservationId != reservationId)
+        {
+            return DomainErrors.Seats.Unavailable([Id]);
+        }
+
+        Status = EventSeatStatus.Sold;
+        HoldReservationId = null;
+        HeldUntil = null;
+        return Result.Success();
+    }
+
     /// <summary>Held → Available (cancel, declined payment, expiry). A seat no longer held is left as it is.</summary>
     public void Release()
     {

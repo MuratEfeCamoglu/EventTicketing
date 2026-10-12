@@ -636,7 +636,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 - [x] **M4 Mekân/salon:** F-04.
 - [x] **M5 Etkinlik:** F-05, F-06, F-07.
 - [x] **M6 Rezervasyon:** F-08, AC-09.1, AC-09.2, AC-13.2, `GET /me/reservations`.
-- [ ] **M7 Ödeme ve bilet:** F-10, F-11, `GET /me/tickets`.
+- [x] **M7 Ödeme ve bilet:** F-10, F-11, `GET /me/tickets`.
 - [ ] **M8 E-posta:** F-12.
 - [ ] **M9 README v1:** amaç, çalıştırma adımları, mimari seçim gerekçesi (§5.1), concurrency açıklaması (§5.4), endpoint özeti, test çalıştırma.
 

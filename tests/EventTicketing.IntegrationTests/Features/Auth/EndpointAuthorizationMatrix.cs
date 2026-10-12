@@ -26,6 +26,9 @@ public static class EndpointAuthorizationMatrix
         new("GET", "/api/v1/reservations/{id}", [UserRole.Customer, UserRole.Admin]),
         new("DELETE", "/api/v1/reservations/{id}", [UserRole.Customer]),
         new("GET", "/api/v1/me/reservations", [UserRole.Customer]),
+        new("POST", "/api/v1/reservations/{id}/payments", [UserRole.Customer]),
+        new("GET", "/api/v1/me/tickets", [UserRole.Customer]),
+        new("GET", "/api/v1/tickets/{id}/qr", [UserRole.Customer, UserRole.Admin]),
     ];
 
     public static readonly IReadOnlyList<(string Method, string Route)> Anonymous =

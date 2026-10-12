@@ -68,6 +68,28 @@ public sealed class Reservation
         return Result.Success();
     }
 
+    /// <summary>Pending (not yet expired) → Confirmed after a successful payment (ISKELET §5.7 step 5).</summary>
+    public Result Confirm(DateTimeOffset now)
+    {
+        var status = StatusAt(now);
+        if (status != ReservationStatus.Pending)
+        {
+            return status == ReservationStatus.Expired ? DomainErrors.Reservations.Expired : DomainErrors.Reservations.InvalidState;
+        }
+
+        Status = ReservationStatus.Confirmed;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
+    /// <summary>Why a payment cannot start: Expired → <c>reservation.expired</c>, any other non-Pending state → <c>reservation.invalid_state</c>.</summary>
+    public Result EnsurePayable(DateTimeOffset now) => StatusAt(now) switch
+    {
+        ReservationStatus.Pending => Result.Success(),
+        ReservationStatus.Expired => DomainErrors.Reservations.Expired,
+        _ => DomainErrors.Reservations.InvalidState,
+    };
+
     /// <summary>Pending past <see cref="ExpiresAt"/> → Expired (lazy expiry, ISKELET §5.8).</summary>
     public Result Expire(DateTimeOffset now)
     {

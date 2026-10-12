@@ -3,6 +3,7 @@ using EventTicketing.Api.Common;
 using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Observability;
+using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
 using Scalar.AspNetCore;
@@ -12,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddLogging();
 builder.AddPersistence();
 builder.AddAuth();
+builder.AddPayments();
 
 builder.Services.AddOptions<ReservationOptions>()
     .BindConfiguration(ReservationOptions.Section)

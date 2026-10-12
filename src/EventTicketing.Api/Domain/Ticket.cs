@@ -1,7 +1,12 @@
+using System.Security.Cryptography;
+
 namespace EventTicketing.Api.Domain;
 
 public sealed class Ticket
 {
+    public const int CodeLength = 26;
+    public const string CrockfordAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
     private Ticket()
     {
     }
@@ -29,4 +34,10 @@ public sealed class Ticket
     public string Code { get; private set; } = null!;
 
     public DateTimeOffset IssuedAt { get; private set; }
+
+    /// <summary>Text encoded in a ticket's QR code (AC-11.2).</summary>
+    public static string QrContent(string code) => $"ETKT:{code}";
+
+    /// <summary>26 random Crockford Base32 characters (130 bits) from <see cref="RandomNumberGenerator"/> (AC-11.2).</summary>
+    public static string GenerateCode() => new(RandomNumberGenerator.GetItems<char>(CrockfordAlphabet, CodeLength));
 }

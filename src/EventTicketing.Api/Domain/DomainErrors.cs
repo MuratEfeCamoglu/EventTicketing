@@ -52,5 +52,12 @@ public static class DomainErrors
     {
         public static readonly Error InvalidState = new("reservation.invalid_state", "The reservation's state does not allow this operation.");
         public static readonly Error AlreadyPending = new("reservation.already_pending", "You already have a pending reservation for this event.");
+        public static readonly Error Expired = new("reservation.expired", "The reservation has expired.");
+    }
+
+    public static class Payments
+    {
+        public static readonly Error Declined = new("payment.declined", "The payment was declined.");
+        public static readonly Error IdempotencyKeyReused = new("payment.idempotency_key_reused", "The Idempotency-Key was already used for another reservation.");
     }
 }

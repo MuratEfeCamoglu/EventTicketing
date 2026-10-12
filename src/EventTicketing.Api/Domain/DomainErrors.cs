@@ -6,6 +6,10 @@ public static class DomainErrors
 {
     public static readonly Error NotFound = new(ErrorCodes.NotFound, "The resource was not found.");
 
+    /// <summary>A <c>400 validation.failed</c> found by the handler (needs the database), shaped like a validator error.</summary>
+    public static Error Validation(string field, string message) =>
+        new(ErrorCodes.ValidationFailed, message, new Dictionary<string, object?> { ["errors"] = new Dictionary<string, string[]> { [field] = [message] } });
+
     public static class Auth
     {
         public static readonly Error InvalidCredentials = new("auth.invalid_credentials", "E-mail or password is incorrect.");
@@ -22,17 +26,27 @@ public static class DomainErrors
 
     public static class Halls
     {
-        public static readonly Error NameTaken = new(
-            ErrorCodes.ValidationFailed,
-            "The venue already has a hall with this name.",
-            new Dictionary<string, object?> { ["errors"] = new Dictionary<string, string[]> { ["name"] = ["The venue already has a hall with this name."] } });
+        public static readonly Error NameTaken = Validation("name", "The venue already has a hall with this name.");
     }
 
     public static class Events
     {
         public static readonly Error InvalidState = new("event.invalid_state", "The event's state does not allow this operation.");
+        public static readonly Error NotOwner = new("event.not_owner", "Only the event's organizer can change it.");
+        public static readonly Error HasSoldTickets = new("event.has_sold_tickets", "The event has sold tickets and cannot be cancelled.");
 
         public static Error MissingSectionPrice(IEnumerable<string> sections) =>
             new("event.missing_section_price", $"No price is defined for section(s): {string.Join(", ", sections)}.");
+    }
+
+    public static class Seats
+    {
+        public static Error Unavailable(IReadOnlyList<Guid> eventSeatIds) =>
+            new("seat.unavailable", "One or more seats are not available.", new Dictionary<string, object?> { ["unavailableSeatIds"] = eventSeatIds });
+    }
+
+    public static class Reservations
+    {
+        public static readonly Error InvalidState = new("reservation.invalid_state", "The reservation's state does not allow this operation.");
     }
 }

@@ -16,6 +16,12 @@ public static class EndpointAuthorizationMatrix
         new("POST", "/api/v1/venues", [UserRole.Admin]),
         new("PUT", "/api/v1/venues/{id}", [UserRole.Admin]),
         new("POST", "/api/v1/venues/{id}/halls", [UserRole.Admin]),
+        new("POST", "/api/v1/events", [UserRole.Organizer, UserRole.Admin]),
+        new("PUT", "/api/v1/events/{id}", [UserRole.Organizer, UserRole.Admin]),
+        new("POST", "/api/v1/events/{id}/publish", [UserRole.Organizer, UserRole.Admin]),
+        new("POST", "/api/v1/events/{id}/cancel", [UserRole.Organizer, UserRole.Admin]),
+        new("DELETE", "/api/v1/events/{id}", [UserRole.Organizer, UserRole.Admin]),
+        new("GET", "/api/v1/organizer/events", [UserRole.Organizer, UserRole.Admin]),
     ];
 
     public static readonly IReadOnlyList<(string Method, string Route)> Anonymous =
@@ -27,6 +33,9 @@ public static class EndpointAuthorizationMatrix
         ("GET", "/api/v1/venues"),
         ("GET", "/api/v1/venues/{id}"),
         ("GET", "/api/v1/halls/{id}"),
+        ("GET", "/api/v1/events"),
+        ("GET", "/api/v1/events/{id}"),
+        ("GET", "/api/v1/events/{id}/seats"),
     ];
 
     /// <summary>Route with every <c>{parameter}</c> replaced by a fresh id.</summary>

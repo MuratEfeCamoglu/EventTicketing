@@ -23,9 +23,8 @@ public static class ListVenues
             var venues = db.Venues.AsNoTracking();
             if (!string.IsNullOrWhiteSpace(request.City))
             {
-                // City matches case-insensitively and in full.
-                var city = request.City.Trim().ToLower();
-                venues = venues.Where(v => v.City.ToLower() == city);
+                var city = LikePattern.Exact(request.City);
+                venues = venues.Where(v => EF.Functions.ILike(v.City, city, LikePattern.EscapeCharacter));
             }
 
             return venues

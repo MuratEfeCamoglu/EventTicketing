@@ -87,4 +87,87 @@ public sealed class Event
         UpdatedAt = now;
         return Result<IReadOnlyList<EventSeat>>.Success(hallSeats.Select(s => new EventSeat(Id, s.Id, prices[s.Section])).ToList());
     }
+
+    /// <summary>
+    /// AC-05.4: a Draft accepts every change; a Published event only a new title and description — any other field that
+    /// differs from the current value is rejected. A Cancelled event cannot change.
+    /// </summary>
+    public Result Update(
+        Guid hallId,
+        string title,
+        string description,
+        EventCategory category,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt,
+        IReadOnlyCollection<(string Section, decimal Price)> sectionPrices,
+        DateTimeOffset now)
+    {
+        if (Status == EventStatus.Cancelled)
+        {
+            return DomainErrors.Events.InvalidState;
+        }
+
+        if (Status == EventStatus.Published)
+        {
+            var current = _sectionPrices.ToDictionary(p => p.Section, p => p.Price);
+            var pricesChanged = sectionPrices.Count != current.Count
+                || sectionPrices.Any(p => !current.TryGetValue(p.Section, out var price) || price != p.Price);
+            if (hallId != HallId || category != Category || startsAt != StartsAt || endsAt != EndsAt || pricesChanged)
+            {
+                return DomainErrors.Events.InvalidState;
+            }
+        }
+        else
+        {
+            HallId = hallId;
+            Category = category;
+            StartsAt = startsAt;
+            EndsAt = endsAt;
+            ReplaceSectionPrices(sectionPrices);
+        }
+
+        Title = title;
+        Description = description;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
+    /// <summary>Published → Cancelled (AC-05.5). Releasing holds and checking sales is the caller's job.</summary>
+    public Result Cancel(DateTimeOffset now)
+    {
+        if (Status != EventStatus.Published)
+        {
+            return DomainErrors.Events.InvalidState;
+        }
+
+        Status = EventStatus.Cancelled;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
+    /// <summary>Only the event's organizer or an Admin may change it (AC-03.2).</summary>
+    public Result EnsureCanBeChangedBy(Guid userId, bool isAdmin) =>
+        isAdmin || userId == OrganizerId ? Result.Success() : DomainErrors.Events.NotOwner;
+
+    /// <summary>Only a Draft is physically deleted (AC-05.6, ISKELET §6).</summary>
+    public Result EnsureDeletable() => Status == EventStatus.Draft ? Result.Success() : DomainErrors.Events.InvalidState;
+
+    /// <summary>Updates prices in place, so EF Core sees updates instead of a delete and insert of the same key.</summary>
+    private void ReplaceSectionPrices(IReadOnlyCollection<(string Section, decimal Price)> sectionPrices)
+    {
+        var requested = sectionPrices.ToDictionary(p => p.Section, p => p.Price);
+        _sectionPrices.RemoveAll(p => !requested.ContainsKey(p.Section));
+        foreach (var (section, price) in requested)
+        {
+            var existing = _sectionPrices.SingleOrDefault(p => p.Section == section);
+            if (existing is null)
+            {
+                _sectionPrices.Add(new EventSectionPrice(Id, section, price));
+            }
+            else
+            {
+                existing.ChangePrice(price);
+            }
+        }
+    }
 }

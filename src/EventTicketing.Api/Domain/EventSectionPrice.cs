@@ -18,4 +18,6 @@ public sealed class EventSectionPrice
     public string Section { get; private set; } = null!;
 
     public decimal Price { get; private set; }
+
+    internal void ChangePrice(decimal price) => Price = price;
 }

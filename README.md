@@ -10,8 +10,8 @@ sorusunun cevabı [`CreateReservation.cs`](src/EventTicketing.Api/Features/Reser
 [`SeatHoldConcurrencyTests.cs`](tests/EventTicketing.IntegrationTests/Features/Reservations/SeatHoldConcurrencyTests.cs)
 dosyalarındadır.
 
-> Durum: **MVP** tamam (ISKELET.md §9, M1–M9); v2 sürüyor: Redis + HybridCache ve Redis lock hazır. Arka plan
-> temizleyicisi, outbox + bildirim servisi ve CI sonraki görevlerdedir.
+> Durum: **MVP** tamam (ISKELET.md §9, M1–M9); **v2** tamam (Redis + HybridCache, Redis lock, arka plan
+> temizleyicisi, tek komutla yerel çalıştırma). Outbox + bildirim servisi ve CI sonraki görevlerdedir.
 
 ## Teknoloji
 
@@ -60,6 +60,10 @@ kaldığı sürece uygulama ve testler değişmeden çalışır.
 dotnet tool restore
 dotnet run --project src/EventTicketing.Api
 ```
+
+Tek komut yeterlidir: yerel PostgreSQL ve Redis çalışıyorsa migration'lar ve örnek veri başlangıçta uygulanır. Ayrı bir
+terminalde doğrulama (Git Bash): `./scripts/smoke.sh`. Betik `GET /api/v1/events` için 5 sn arayla 24 kez dener ve
+120 sn içinde en az bir etkinlikle `200` bekler (AC-16.1). Bu makinedeki ölçüm: temiz derleme dahil 80 sn.
 
 - API: `http://localhost:8080/api/v1` · Scalar UI: `http://localhost:8080/scalar` · OpenAPI: `/openapi/v1.json`
 - Development ortamında migration'lar ve örnek veri başlangıçta uygulanır: 100 koltuklu bir salon, 30 gün sonraya
@@ -138,7 +142,10 @@ Koltuk tutma akışı (`CreateReservation`):
    `xmin` uyuşmaz ve istek `409` alır.
 
 **10 dakikalık tutma** bir iş kuralıdır ve DB'de (`held_until`, `expires_at`) saklanır. Süresi geçmiş bir tutma hiçbir
-okumada ve yazmada geçerli sayılmaz, bu yüzden MVP'de arka plan işi olmadan da doğruluk korunur. Kanıt: 50 farklı
+okumada ve yazmada geçerli sayılmaz, bu yüzden arka plan işi olmadan da doğruluk korunur. v2'deki
+`ReservationExpiryService` her 30 sn'de (`Reservations:ExpirySweepIntervalSeconds`) süresi dolan `Pending`
+rezervasyonları `Expired` yapıp koltuklarını bırakarak kayıtlı durumu düzenli tutar. Birden fazla API örneğinde
+aynı anda çalışabilir, çünkü her güncelleme `status = 'Pending'` koşuluyla yapılır. Kanıt: 50 farklı
 kullanıcı aynı koltuğa `Barrier` ile aynı anda istek atar; 10 turun her birinde tam 1 adet `201`, 49 adet `409` döner ve
 DB'de o koltuğa bağlı tek `Pending` rezervasyon kalır (AC-08.3). Test üç düzende koşar:
 - **Kilit açık:** kaybedenler kilitte veya koltuğu `Held` bularak `409` alır;

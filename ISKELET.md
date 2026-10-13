@@ -646,7 +646,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 - [x] **V2-1 Redis + HybridCache:** F-15; yerel Redis kurulumu README'de.
 - [x] **V2-2 Distributed lock:** F-14; `Locking:Enabled` bayrağı.
 - [x] **V2-3 Sweeper:** AC-09.3; `reservations_expired_total` sayacı (`System.Diagnostics.Metrics`; dışa aktarım v3).
-- [ ] **V2-4 Yerel çalıştırma:** `launchSettings.json` (Development, port 8080), başlangıçta migration + seed, `scripts/smoke.sh`, README kurulum adımları; F-16.
+- [x] **V2-4 Yerel çalıştırma:** `launchSettings.json` (Development, port 8080), başlangıçta migration + seed, `scripts/smoke.sh`, README kurulum adımları; F-16.
 
 *v2 çıkış kriteri:* F-14, F-15, F-16, AC-09.3 testleri geçer; MVP testleri hâlâ geçer; README'de Redis lock + cache bölümü.
 

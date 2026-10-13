@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,7 @@ namespace EventTicketing.Api.Features.Events;
 /// </summary>
 public static class CancelEvent
 {
-    public sealed class Handler(AppDbContext db, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result<EventResponse>> HandleAsync(Guid eventId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
         {
@@ -62,6 +63,7 @@ public static class CancelEvent
 
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await cache.EventChangedAsync(eventId, cancellationToken);
             logger.LogInformation("Event {EventId} cancelled; {ReservationCount} pending reservations ended", eventId, pending.Count);
             return EventResponse.From(published);
         }

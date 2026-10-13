@@ -1,7 +1,9 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace EventTicketing.Api.Features.Events;
 
@@ -24,11 +26,23 @@ public static class GetEvent
 
     public sealed record HallDto(Guid Id, string Name);
 
-    public sealed class Handler(AppDbContext db)
+    public sealed class Handler(AppDbContext db, HybridCache cache)
     {
         public async Task<Result<Response>> HandleAsync(Guid eventId, CancellationToken cancellationToken)
         {
-            var response = await (
+            var response = await cache.GetOrCreateAsync(
+                EventCache.DetailKey(eventId),
+                ct => LoadAsync(eventId, ct),
+                EventCache.Detail,
+                [EventCache.EventsTag, EventCache.EventTag(eventId)],
+                cancellationToken);
+
+            return response is null ? DomainErrors.NotFound : response;
+        }
+
+        /// <summary>Null when the event does not exist or is not Published; the miss is cached too and cleared on publish.</summary>
+        private async ValueTask<Response?> LoadAsync(Guid eventId, CancellationToken cancellationToken) =>
+            await (
                     from e in db.Events.AsNoTracking()
                     join h in db.Halls on e.HallId equals h.Id
                     join v in db.Venues on h.VenueId equals v.Id
@@ -45,9 +59,6 @@ public static class GetEvent
                         new HallDto(h.Id, h.Name),
                         e.SectionPrices.OrderBy(p => p.Section).Select(p => new SectionPriceResponse(p.Section, p.Price)).ToList()))
                 .SingleOrDefaultAsync(cancellationToken);
-
-            return response is null ? DomainErrors.NotFound : response;
-        }
     }
 
     public sealed class Endpoint : IEndpoint

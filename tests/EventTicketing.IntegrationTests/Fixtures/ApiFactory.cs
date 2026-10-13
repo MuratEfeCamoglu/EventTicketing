@@ -1,7 +1,10 @@
 using System.Security.Cryptography;
+using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
@@ -23,15 +26,36 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public CollectingLogSink Logs { get; } = new();
 
+    /// <summary>HybridCache wildcard: invalidating it invalidates every entry.</summary>
+    private const string HybridCacheAllTags = "*";
+
+    private static readonly Guid RunId = Guid.NewGuid();
+
     /// <summary>Generated per test run (ISKELET §5.14).</summary>
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
+    /// <summary>
+    /// Local Redis from <c>EVENTTICKETING_TEST_REDIS</c> (default <c>localhost:6379</c>) with the fail-fast options of
+    /// ISKELET §5.14.
+    /// </summary>
+    public static string RedisConnectionString { get; } =
+        $"{Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_REDIS") ?? "localhost:6379"},abortConnect=false,connectTimeout=1000,syncTimeout=1000";
+
+    /// <summary>Counts SQL commands, so a test can prove a read was served from the cache (AC-15.1).</summary>
+    public DbCommandCounter DbCommands { get; } = new();
+
     public async ValueTask InitializeAsync() => await Postgres.InitializeAsync();
 
-    public Task ResetAsync()
+    /// <summary>Empty database, empty log sink and a cache in which every earlier entry is invalid.</summary>
+    public async Task ResetAsync()
     {
         Logs.Clear();
-        return Postgres.ResetAsync();
+        await Postgres.ResetAsync();
+        await Services.GetRequiredService<HybridCache>().RemoveByTagAsync(HybridCacheAllTags);
+
+        // HybridCache stamps entries and tag invalidations with the (fake) TimeProvider; an entry created at the very
+        // instant of the invalidation would count as invalidated, so time moves on by a tick.
+        Clock.Advance(TimeSpan.FromMilliseconds(1));
     }
 
     public override async ValueTask DisposeAsync()
@@ -44,6 +68,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Postgres", Postgres.ConnectionString);
+        builder.UseSetting("ConnectionStrings:Redis", RedisConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Seed:AdminEmail", AdminEmail);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
@@ -57,6 +82,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
             services.AddSingleton<ILogEventSink>(Logs);
+            services.ConfigureDbContext<AppDbContext>(options => options.AddInterceptors(DbCommands));
+
+            // Keys of this test run never meet those of another run or of the development API in the same Redis.
+            services.Configure<RedisCacheOptions>(options => options.InstanceName = $"eventticketing-test:{RunId}:");
         });
     }
 }

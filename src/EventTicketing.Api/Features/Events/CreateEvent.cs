@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
 
@@ -26,7 +27,7 @@ public static class CreateEvent
         }
     }
 
-    public sealed class Handler(AppDbContext db, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result<EventResponse>> HandleAsync(Guid organizerId, Request request, CancellationToken cancellationToken)
         {
@@ -47,6 +48,7 @@ public static class CreateEvent
                 clock.GetUtcNow());
             db.Events.Add(created);
             await db.SaveChangesAsync(cancellationToken);
+            await cache.EventChangedAsync(created.Id, cancellationToken);
 
             logger.LogInformation("Event {EventId} created by {OrganizerId}", created.Id, organizerId);
             return EventResponse.From(created);

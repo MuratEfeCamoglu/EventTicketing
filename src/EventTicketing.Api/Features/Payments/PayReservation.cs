@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Email;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
@@ -35,7 +36,7 @@ public static class PayReservation
             .WithMessage($"Payment token must be one of: {string.Join(", ", MockPaymentGateway.SupportedTokens)}.");
     }
 
-    public sealed class Handler(AppDbContext db, IPaymentGateway gateway, IEmailSender email, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, IPaymentGateway gateway, IEmailSender email, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result<Response>> HandleAsync(Guid reservationId, Guid userId, Guid idempotencyKey, Request request, CancellationToken cancellationToken)
         {
@@ -59,19 +60,19 @@ public static class PayReservation
             }
 
             var charge = await gateway.ChargeAsync(reservation.TotalAmount, request.PaymentToken, idempotencyKey, cancellationToken);
-            if (!charge.Succeeded)
+            var confirmed = charge.Succeeded ? await TryConfirmAsync(reservation, idempotencyKey, charge, cancellationToken) : null;
+            var result = confirmed is not null ? confirmed
+                : charge.Succeeded ? await RefundAsync(reservation, idempotencyKey, charge, cancellationToken)
+                : await RecordDeclineAsync(reservation, idempotencyKey, charge, cancellationToken);
+
+            // Every path after a charge may have sold or released seats (ISKELET §5.9).
+            await cache.SeatsChangedAsync(reservation.EventId, cancellationToken);
+            if (confirmed is not null)
             {
-                return await RecordDeclineAsync(reservation, idempotencyKey, charge, cancellationToken);
+                await SendTicketsAsync(reservation.Id, reservation.UserId, confirmed.Tickets, cancellationToken);
             }
 
-            var confirmed = await TryConfirmAsync(reservation, idempotencyKey, charge, cancellationToken);
-            if (confirmed is null)
-            {
-                return await RefundAsync(reservation, idempotencyKey, charge, cancellationToken);
-            }
-
-            await SendTicketsAsync(reservation.Id, reservation.UserId, confirmed.Tickets, cancellationToken);
-            return confirmed;
+            return result;
         }
 
         /// <summary>

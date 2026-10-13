@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,7 @@ namespace EventTicketing.Api.Features.Events;
 /// <summary>Deletes a Draft together with its section prices; any other state → 409 (AC-05.6).</summary>
 public static class DeleteEvent
 {
-    public sealed class Handler(AppDbContext db, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, ILogger<Handler> logger)
     {
         public async Task<Result> HandleAsync(Guid eventId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
         {
@@ -30,6 +31,7 @@ public static class DeleteEvent
 
             db.Events.Remove(draft);
             await db.SaveChangesAsync(cancellationToken);
+            await cache.EventChangedAsync(eventId, cancellationToken);
 
             logger.LogInformation("Draft event {EventId} deleted", eventId);
             return Result.Success();

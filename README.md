@@ -10,13 +10,14 @@ sorusunun cevabı [`CreateReservation.cs`](src/EventTicketing.Api/Features/Reser
 [`SeatHoldConcurrencyTests.cs`](tests/EventTicketing.IntegrationTests/Features/Reservations/SeatHoldConcurrencyTests.cs)
 dosyalarındadır.
 
-> Durum: **MVP** (ISKELET.md §9, M1–M9). Redis cache/lock, arka plan temizleyicisi, outbox + bildirim servisi ve CI
-> sonraki aşamalardadır.
+> Durum: **MVP** tamam (ISKELET.md §9, M1–M9); v2 sürüyor: Redis + HybridCache hazır. Redis lock, arka plan
+> temizleyicisi, outbox + bildirim servisi ve CI sonraki görevlerdedir.
 
 ## Teknoloji
 
 .NET 10 · ASP.NET Core Minimal API · EF Core 10 + Npgsql · PostgreSQL 17 · FluentValidation · Serilog ·
-MailKit + Mailpit · QRCoder · xUnit v3 · Shouldly · Respawn. Docker kullanılmaz; tüm servisler yerel kurulumdur.
+Redis 7 + HybridCache · MailKit + Mailpit · QRCoder · xUnit v3 · Shouldly · Respawn. Docker kullanılmaz; tüm
+servisler yerel kurulumdur.
 
 ## Çalıştırma
 
@@ -26,6 +27,7 @@ MailKit + Mailpit · QRCoder · xUnit v3 · Shouldly · Respawn. Docker kullanı
 |---|---|
 | .NET SDK 10.0.x | `dotnet --version` |
 | PostgreSQL 17 | `localhost:5432`, kullanıcı `postgres`, parola `dev-only-postgres` (yalnız yerel geliştirme değeri) |
+| Redis 7 | `localhost:6379`, parolasız, yalnız loopback (v2) |
 | Mailpit | SMTP `localhost:1025`, arayüz `http://localhost:8025` |
 
 Yönetici yetkisi gerektirmeyen taşınabilir kurulum (PowerShell):
@@ -39,7 +41,15 @@ $pg = "$env:LOCALAPPDATA\EventTicketing"
 # Mailpit: https://github.com/axllent/mailpit/releases adresindeki mailpit-windows-amd64.zip'i
 # %LOCALAPPDATA%\EventTicketing\mailpit altına açın, sonra:
 Start-Process "$pg\mailpit\mailpit.exe" -ArgumentList '--smtp','localhost:1025','--listen','localhost:8025' -WindowStyle Hidden
+
+# Redis 7: Redis'in resmi Windows sürümü yok. https://github.com/redis-windows/redis-windows/releases adresindeki
+# Redis-7.4.x-Windows-x64-msys2.zip'i %LOCALAPPDATA%\EventTicketing\redis altına açın, sonra:
+Start-Process "$pg\redis\redis-server.exe" -WorkingDirectory "$pg\redis" -WindowStyle Hidden `
+  -ArgumentList '--port','6379','--bind','"127.0.0.1 ::1"','--save','""','--appendonly','no'
 ```
+
+Redis yalnız önbellek (ve v2'de kilit) içindir, kalıcılık kapalıdır. Kapalıysa API çalışmaya devam eder; okumalar
+veritabanından gelir.
 
 Başka bir kurulum yöntemi de kullanılabilir (ör. `winget install PostgreSQL.PostgreSQL.17`); bağlantı bilgisi aynı
 kaldığı sürece uygulama ve testler değişmeden çalışır.
@@ -129,6 +139,24 @@ okumada ve yazmada geçerli sayılmaz, bu yüzden MVP'de arka plan işi olmadan 
 kullanıcı aynı koltuğa `Barrier` ile aynı anda istek atar; 10 turun her birinde tam 1 adet `201`, 49 adet `409` döner ve
 DB'de o koltuğa bağlı tek `Pending` rezervasyon kalır (AC-08.3).
 
+### Önbellek (v2)
+
+Okuma endpoint'leri `HybridCache` ile önbelleklenir: L1 süreç belleği, L2 Redis. Yazma kararlarının hiçbiri önbellekten
+okunan veriyle verilmez; koltuk tutma ve ödeme her zaman veritabanından okur.
+
+| Veri | Anahtar | L2 / L1 TTL | Geçersizleştiren işlemler |
+|---|---|---|---|
+| Etkinlik listesi | `events:list:{sorgu}` | 60 sn / 10 sn | Etkinlik oluşturma, güncelleme, yayımlama, iptal, silme |
+| Etkinlik detayı | `events:{id}` | 5 dk / 10 sn | Aynı |
+| Koltuk haritası | `events:{id}:seats` | 5 sn / 2 sn | Tutma, rezervasyon iptali, ödeme (başarılı, reddedilen, iade), etkinlik iptali |
+
+- Geçersizleştirme tag'lerle yapılır (`events`, `event:{id}`, `event:{id}:seats`) ve commit'ten sonra çalışır.
+- Koltuk haritası koltuğun kayıtlı durumunu ve `heldUntil` değerini saklar. Süresi geçmiş tutma okuma anında
+  `Available` sayılır, bu yüzden önbellekteki bir tutma da zamanında düşer.
+- Redis erişilemezse okumalar L1 ve veritabanıyla `200` dönmeye devam eder. Yazmalardaki geçersizleştirme hatası
+  `Warning` olarak loglanır ve isteği bozmaz; kalan girdiler TTL ile düşer. Bağlantı dizesindeki
+  `abortConnect=false,connectTimeout=1000,syncTimeout=1000` sayesinde bir istek Redis için en fazla ~1 sn bekler.
+
 ### Ödeme ve idempotency
 
 `POST /reservations/{id}/payments` bir `Idempotency-Key` (UUID) başlığı ister:
@@ -168,7 +196,7 @@ Başkasına ait rezervasyon veya bilete erişim `404` döner; böylece kaydın v
 
 ```bash
 dotnet test tests/EventTicketing.UnitTests          # dış bağımlılık gerektirmez
-dotnet test tests/EventTicketing.IntegrationTests   # yerel PostgreSQL + Mailpit gerektirir
+dotnet test tests/EventTicketing.IntegrationTests   # yerel PostgreSQL + Redis + Mailpit gerektirir
 dotnet test --filter "AC=AC-08.3"                   # tek bir kabul kriterinin testleri
 dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResults/ altına
 ```
@@ -179,8 +207,9 @@ dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResul
 - Zaman `FakeTimeProvider` ile ilerletilir (`Task.Delay` ile beklenmez). JWT doğrulaması da aynı `TimeProvider`'ı
   kullanır.
 - Bağlantılar ortam değişkenleriyle değiştirilebilir: `EVENTTICKETING_TEST_POSTGRES` (varsayılan
-  `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`), `EVENTTICKETING_TEST_MAILPIT` (varsayılan
-  `http://localhost:8025`).
+  `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`), `EVENTTICKETING_TEST_REDIS`
+  (varsayılan `localhost:6379`), `EVENTTICKETING_TEST_MAILPIT` (varsayılan `http://localhost:8025`). Her test
+  koşusu Redis'te kendi anahtar önekini kullanır.
 
 Son ölçüm (2026-10-12): 70 unit + 253 integration testi; `EventTicketing.Api` birleşik satır kapsamı **%92,2** (üretilmiş migration dosyaları hariç; hedef ≥ %70, NFR-05).
 

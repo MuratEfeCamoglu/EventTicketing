@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
 using EventTicketing.Api.Domain;
 using EventTicketing.IntegrationTests.Fixtures;
 using Serilog.Events;
@@ -45,7 +44,7 @@ public sealed class TicketEmailTests(ApiFactory factory) : ApiTestBase(factory)
     [Trait("AC", "AC-12.2")]
     public async Task PayReservation_SmtpUnreachable_Returns200AndLogsErrorWithReservationId()
     {
-        await using var noSmtpApi = Factory.WithWebHostBuilder(builder => builder.UseSetting("Smtp:Port", ClosedPort().ToString()));
+        await using var noSmtpApi = Factory.WithWebHostBuilder(builder => builder.UseSetting("Smtp:Port", ClosedPort.Find().ToString()));
         using var client = noSmtpApi.CreateClient();
         var (eventId, seatIds) = await Factory.CreateEventOnSaleAsync();
         await client.AuthenticateAsAsync(Factory, UserRole.Customer);
@@ -58,15 +57,5 @@ public sealed class TicketEmailTests(ApiFactory factory) : ApiTestBase(factory)
             e.Level == LogEventLevel.Error
             && e.Properties.ContainsKey("ReservationId")
             && e.Properties["ReservationId"].ToString().Contains(reservationId.ToString(), StringComparison.Ordinal));
-    }
-
-    /// <summary>A local port nothing listens on: bound by the OS, then released.</summary>
-    private static int ClosedPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 }

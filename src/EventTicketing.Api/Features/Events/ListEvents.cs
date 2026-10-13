@@ -1,8 +1,11 @@
+using System.Globalization;
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace EventTicketing.Api.Features.Events;
 
@@ -35,9 +38,29 @@ public static class ListEvents
         }
     }
 
-    public sealed class Handler(AppDbContext db, TimeProvider clock)
+    public sealed class Handler(AppDbContext db, HybridCache cache, TimeProvider clock)
     {
-        public Task<PagedResponse<Item>> HandleAsync(Request request, CancellationToken cancellationToken)
+        public async Task<PagedResponse<Item>> HandleAsync(Request request, CancellationToken cancellationToken) =>
+            await cache.GetOrCreateAsync(
+                EventCache.ListKey(NormalizedQuery(request)),
+                ct => new ValueTask<PagedResponse<Item>>(LoadAsync(request, ct)),
+                EventCache.List,
+                [EventCache.EventsTag],
+                cancellationToken);
+
+        /// <summary>One cache entry per distinct query; defaults are filled in so equivalent URLs share an entry.</summary>
+        private static string NormalizedQuery(Request request) => string.Join(
+            '|',
+            request.City?.Trim() ?? string.Empty,
+            request.Category is null ? string.Empty : Enum.Parse<EventCategory>(request.Category, ignoreCase: true).ToString(),
+            request.From?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
+            request.To?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
+            request.Q?.Trim() ?? string.Empty,
+            request.Sort ?? SortByStartsAt,
+            request.Page ?? Paging.DefaultPage,
+            request.PageSize ?? Paging.DefaultPageSize);
+
+        private Task<PagedResponse<Item>> LoadAsync(Request request, CancellationToken cancellationToken)
         {
             var now = clock.GetUtcNow();
             var events =

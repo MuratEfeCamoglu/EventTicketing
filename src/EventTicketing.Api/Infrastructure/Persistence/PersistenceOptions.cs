@@ -8,6 +8,13 @@ public sealed class ConnectionStringOptions
 
     [Required]
     public string Postgres { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Required from v2. Carries <c>abortConnect=false,connectTimeout=1000,syncTimeout=1000</c>, so requests never wait
+    /// long on a Redis that is down (ISKELET §5.14).
+    /// </summary>
+    [Required]
+    public string Redis { get; set; } = string.Empty;
 }
 
 public sealed class DatabaseOptions

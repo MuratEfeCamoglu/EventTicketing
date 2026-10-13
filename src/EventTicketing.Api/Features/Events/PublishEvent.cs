@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,7 @@ namespace EventTicketing.Api.Features.Events;
 /// <summary>Draft → Published; creates one Available event seat per hall seat at its section price (AC-05.3).</summary>
 public static class PublishEvent
 {
-    public sealed class Handler(AppDbContext db, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result<EventResponse>> HandleAsync(Guid eventId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
         {
@@ -32,6 +33,7 @@ public static class PublishEvent
 
             db.EventSeats.AddRange(published.Value);
             await db.SaveChangesAsync(cancellationToken);
+            await cache.EventChangedAsync(draft.Id, cancellationToken);
 
             logger.LogInformation("Event {EventId} published with {SeatCount} seats", draft.Id, published.Value.Count);
             return EventResponse.From(draft);

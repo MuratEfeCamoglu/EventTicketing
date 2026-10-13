@@ -643,7 +643,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 *MVP çıkış kriteri:* F-01…F-13'ün tüm MVP AC'leri (AC-09.3 hariç) testleri geçer; `dotnet test` tamamen yeşil; satır kapsamı raporlanır (NFR-05 hedefi izlenir, zorunluluk v3'te); README v1 mevcut.
 
 ### Aşama 2 — v2 (1,5 hafta)
-- [ ] **V2-1 Redis + HybridCache:** F-15; yerel Redis kurulumu README'de.
+- [x] **V2-1 Redis + HybridCache:** F-15; yerel Redis kurulumu README'de.
 - [ ] **V2-2 Distributed lock:** F-14; `Locking:Enabled` bayrağı.
 - [ ] **V2-3 Sweeper:** AC-09.3; `reservations_expired_total` sayacı (`System.Diagnostics.Metrics`; dışa aktarım v3).
 - [ ] **V2-4 Yerel çalıştırma:** `launchSettings.json` (Development, port 8080), başlangıçta migration + seed, `scripts/smoke.sh`, README kurulum adımları; F-16.

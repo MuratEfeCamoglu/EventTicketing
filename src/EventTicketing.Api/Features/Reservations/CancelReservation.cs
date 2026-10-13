@@ -1,5 +1,6 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
+using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,7 @@ namespace EventTicketing.Api.Features.Reservations;
 /// <summary>The owner cancels a Pending reservation and its seats become Available (AC-08.7).</summary>
 public static class CancelReservation
 {
-    public sealed class Handler(AppDbContext db, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
     {
         public async Task<Result> HandleAsync(Guid reservationId, Guid userId, CancellationToken cancellationToken)
         {
@@ -35,6 +36,7 @@ public static class CancelReservation
             // A payment confirming the same reservation concurrently changes its xmin: SaveChanges then fails with
             // DbUpdateConcurrencyException (→ 409 concurrency.conflict) instead of releasing sold seats.
             await db.SaveChangesAsync(cancellationToken);
+            await cache.SeatsChangedAsync(reservation.EventId, cancellationToken);
             logger.LogInformation("Reservation {ReservationId} cancelled by its owner", reservationId);
             return Result.Success();
         }

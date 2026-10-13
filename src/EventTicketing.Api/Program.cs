@@ -4,6 +4,7 @@ using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Email;
+using EventTicketing.Api.Infrastructure.Locking;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
@@ -15,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddLogging();
 builder.AddPersistence();
 builder.AddCaching();
+builder.AddSeatLocking();
 builder.AddAuth();
 builder.AddPayments();
 builder.AddEmail();
@@ -25,6 +27,7 @@ builder.Services.AddOptions<ReservationOptions>()
     .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<EventTicketingMetrics>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemDetailsSetup.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

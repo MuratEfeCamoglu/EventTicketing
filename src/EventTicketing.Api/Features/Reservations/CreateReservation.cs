@@ -1,6 +1,8 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
 using EventTicketing.Api.Infrastructure.Caching;
+using EventTicketing.Api.Infrastructure.Locking;
+using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -31,10 +33,25 @@ public static class CreateReservation
         }
     }
 
-    public sealed class Handler(AppDbContext db, EventCacheInvalidator cache, TimeProvider clock, IOptions<ReservationOptions> options, ILogger<Handler> logger)
+    public sealed class Handler(
+        AppDbContext db,
+        ISeatLockService seatLocks,
+        EventCacheInvalidator cache,
+        EventTicketingMetrics metrics,
+        TimeProvider clock,
+        IOptions<ReservationOptions> options,
+        ILogger<Handler> logger)
     {
         public async Task<Result<ReservationResponse>> HandleAsync(Guid eventId, Guid userId, Request request, CancellationToken cancellationToken)
         {
+            // Step 2: losers of a hot seat are refused here, without waiting and without touching the database.
+            await using var locks = await seatLocks.AcquireAsync(request.EventSeatIds);
+            if (!locks.Acquired)
+            {
+                metrics.SeatHoldConflict();
+                return DomainErrors.Seats.Unavailable([locks.RefusedSeatId!.Value]);
+            }
+
             var now = clock.GetUtcNow();
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
@@ -69,6 +86,7 @@ public static class CreateReservation
             var unavailable = seats.Where(s => !s.Hold(reservation.Id, reservation.ExpiresAt, now).IsSuccess).Select(s => s.Id).ToList();
             if (unavailable.Count > 0)
             {
+                metrics.SeatHoldConflict();
                 return DomainErrors.Seats.Unavailable(unavailable);
             }
 
@@ -83,6 +101,8 @@ public static class CreateReservation
                 // Another request changed one of the seats after we read it (ISKELET §5.4 layer 2).
                 var lost = exception.Entries.Select(e => e.Entity).OfType<EventSeat>().Select(s => s.Id).ToList();
                 logger.LogInformation("Seat hold lost a concurrency race on event {EventId}", eventId);
+                metrics.SeatHoldConflict();
+                metrics.SeatHoldConcurrencyConflict();
                 return DomainErrors.Seats.Unavailable(lost.Count > 0 ? lost : request.EventSeatIds);
             }
             catch (DbUpdateException exception) when (exception.IsUniqueViolation("ix_reservations_user_event_pending"))

@@ -10,7 +10,7 @@ sorusunun cevabı [`CreateReservation.cs`](src/EventTicketing.Api/Features/Reser
 [`SeatHoldConcurrencyTests.cs`](tests/EventTicketing.IntegrationTests/Features/Reservations/SeatHoldConcurrencyTests.cs)
 dosyalarındadır.
 
-> Durum: **MVP** tamam (ISKELET.md §9, M1–M9); v2 sürüyor: Redis + HybridCache hazır. Redis lock, arka plan
+> Durum: **MVP** tamam (ISKELET.md §9, M1–M9); v2 sürüyor: Redis + HybridCache ve Redis lock hazır. Arka plan
 > temizleyicisi, outbox + bildirim servisi ve CI sonraki görevlerdedir.
 
 ## Teknoloji
@@ -116,28 +116,37 @@ Beklenen hatalar `Result<T>` + makine okunur `code` ile RFC 9457 ProblemDetails'
 
 ## Çift satış nasıl önleniyor?
 
-Doğruluğun kaynağı **PostgreSQL**'dir. MVP'de iki katman vardır; v2'de üstlerine Redis lock eklenir ama doğruluk ona
-bağlı değildir.
+Doğruluğun kaynağı **PostgreSQL**'dir. Üç katman vardır ve alttaki katman üsttekiler olmadan da doğruluğu garanti
+eder; Redis lock yalnız bir performans katmanıdır.
 
 | Katman | Mekanizma | Görevi |
 |---|---|---|
-| Optimistic concurrency | `event_seats.xmin` → EF Core `RowVersion`; `UPDATE … WHERE xmin = @okunan` | Aynı koltuğu okuyan iki işlemden ikincisi `DbUpdateConcurrencyException` alır → `409 seat.unavailable` |
-| Unique constraint | `tickets.event_seat_id` UNIQUE; kullanıcı + etkinlik başına tek `Pending` rezervasyon (partial unique index) | Son savunma hattı: kod hatası olsa bile aynı koltuğa ikinci bilet yazılamaz |
-| Redis lock (v2) | `lock:event-seat:{id}`, 5 sn TTL | Sıcak koltukta DB çakışmasını azaltır; Redis yoksa atlanır |
+| 1. Redis lock (v2) | `lock:event-seat:{id}`, değer rastgele token, TTL 5 sn (`Locking:TtlSeconds`), `LockTakeAsync` / `LockReleaseAsync` | Sıcak koltukta kaybedenleri beklemeden ve DB'ye gitmeden reddeder. Redis yoksa atlanır (fail-open) |
+| 2. Optimistic concurrency | `event_seats.xmin` → EF Core `RowVersion`; `UPDATE … WHERE xmin = @okunan` | Aynı koltuğu okuyan iki işlemden ikincisi `DbUpdateConcurrencyException` alır → `409 seat.unavailable` |
+| 3. Unique constraint | `tickets.event_seat_id` UNIQUE; kullanıcı + etkinlik başına tek `Pending` rezervasyon (partial unique index) | Son savunma hattı: kod hatası olsa bile aynı koltuğa ikinci bilet yazılamaz |
 
 Koltuk tutma akışı (`CreateReservation`):
-1. Transaction açılır, etkinlik satırı `FOR SHARE` ile okunur (aynı anda iptal edilen etkinlikte koltuk tutulamaz).
-2. Etkinlik satışta değilse `409 event.not_on_sale`. Kullanıcının süresi dolmamış `Pending` rezervasyonu varsa
+1. (`Locking:Enabled`) Koltuk kilitleri artan `eventSeatId` sırasıyla alınır; bu sıra iki isteğin birbirini kilitlemesini
+   önler. Biri alınamazsa alınanlar bırakılır ve beklemeden `409 seat.unavailable` döner. Kilitler istek sonunda yalnız
+   sahibi olan token ile bırakılır.
+2. Transaction açılır, etkinlik satırı `FOR SHARE` ile okunur (aynı anda iptal edilen etkinlikte koltuk tutulamaz).
+3. Etkinlik satışta değilse `409 event.not_on_sale`. Kullanıcının süresi dolmamış `Pending` rezervasyonu varsa
    `409 reservation.already_pending`; süresi dolmuşsa `Expired` yapılır ve koltukları bırakılır.
-3. Koltuklar takipli yüklenir. `Sold` veya süresi dolmamış `Held` koltuk varsa `409 seat.unavailable` döner ve yanıt
+4. Koltuklar takipli yüklenir. `Sold` veya süresi dolmamış `Held` koltuk varsa `409 seat.unavailable` döner ve yanıt
    `unavailableSeatIds` alanını taşır. Ya hepsi tutulur ya hiçbiri.
-4. Rezervasyon eklenir, koltuklar `Held` yapılır, `SaveChanges` çalışır. Arada başka bir işlem koltuğu değiştirdiyse
+5. Rezervasyon eklenir, koltuklar `Held` yapılır, `SaveChanges` çalışır. Arada başka bir işlem koltuğu değiştirdiyse
    `xmin` uyuşmaz ve istek `409` alır.
 
 **10 dakikalık tutma** bir iş kuralıdır ve DB'de (`held_until`, `expires_at`) saklanır. Süresi geçmiş bir tutma hiçbir
 okumada ve yazmada geçerli sayılmaz, bu yüzden MVP'de arka plan işi olmadan da doğruluk korunur. Kanıt: 50 farklı
 kullanıcı aynı koltuğa `Barrier` ile aynı anda istek atar; 10 turun her birinde tam 1 adet `201`, 49 adet `409` döner ve
-DB'de o koltuğa bağlı tek `Pending` rezervasyon kalır (AC-08.3).
+DB'de o koltuğa bağlı tek `Pending` rezervasyon kalır (AC-08.3). Test üç düzende koşar:
+- **Kilit açık:** kaybedenler kilitte veya koltuğu `Held` bularak `409` alır;
+  `seat_hold_concurrency_conflicts_total` (DB'deki `xmin` çakışması sayacı) 0 kalır (AC-14.1).
+- **Kilit kapalı:** sonuç aynıdır; bu kez kaybedenlerin bir kısmını `xmin` durdurur.
+- **Redis erişilemez:** kilit her istekte `Warning` loguyla atlanır, doğruluk yine DB'de korunur (AC-14.3).
+
+Redis lock 10 dakikalık tutmayı temsil etmez: 5 saniyelik teknik bir kritik bölge kilididir.
 
 ### Önbellek (v2)
 

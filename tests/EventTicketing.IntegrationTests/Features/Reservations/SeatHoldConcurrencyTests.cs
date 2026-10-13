@@ -1,9 +1,7 @@
-using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using EventTicketing.Api.Domain;
-using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using Serilog.Events;
@@ -113,29 +111,5 @@ public sealed class SeatHoldConcurrencyTests(ApiFactory factory) : ApiTestBase(f
             .ToList();
 
         return await Task.WhenAll(requests);
-    }
-
-    /// <summary>Sums one <see cref="EventTicketingMetrics"/> counter while alive.</summary>
-    private sealed class CounterListener : IDisposable
-    {
-        private readonly MeterListener _listener = new();
-        private long _total;
-
-        public CounterListener(string instrumentName)
-        {
-            _listener.InstrumentPublished = (instrument, listener) =>
-            {
-                if (instrument.Meter.Name == EventTicketingMetrics.MeterName && instrument.Name == instrumentName)
-                {
-                    listener.EnableMeasurementEvents(instrument);
-                }
-            };
-            _listener.SetMeasurementEventCallback<long>((_, value, _, _) => Interlocked.Add(ref _total, value));
-            _listener.Start();
-        }
-
-        public long Total => Interlocked.Read(ref _total);
-
-        public void Dispose() => _listener.Dispose();
     }
 }

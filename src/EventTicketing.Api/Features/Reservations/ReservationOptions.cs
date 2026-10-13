@@ -12,4 +12,8 @@ public sealed class ReservationOptions
 
     [Range(1, 100)]
     public int MaxSeatsPerReservation { get; set; } = 6;
+
+    /// <summary>Period of <see cref="ReservationExpiryService"/> (v2).</summary>
+    [Range(1, 3600)]
+    public int ExpirySweepIntervalSeconds { get; set; } = 30;
 }

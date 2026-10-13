@@ -28,6 +28,7 @@ builder.Services.AddOptions<ReservationOptions>()
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<EventTicketingMetrics>();
+builder.Services.AddHostedService<ReservationExpiryService>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemDetailsSetup.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

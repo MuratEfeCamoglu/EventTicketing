@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
 using Serilog.Core;
 
@@ -83,6 +85,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<TimeProvider>(Clock);
             services.AddSingleton<ILogEventSink>(Logs);
             services.ConfigureDbContext<AppDbContext>(options => options.AddInterceptors(DbCommands));
+
+            // The sweeper would run whenever a test advances the fake clock; tests call SweepOnceAsync themselves (AC-09.3).
+            foreach (var sweeper in services.Where(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(ReservationExpiryService)).ToList())
+            {
+                services.Remove(sweeper);
+            }
+
+            services.AddSingleton<ReservationExpiryService>();
 
             // Keys of this test run never meet those of another run or of the development API in the same Redis.
             services.Configure<RedisCacheOptions>(options => options.InstanceName = $"eventticketing-test:{RunId}:");

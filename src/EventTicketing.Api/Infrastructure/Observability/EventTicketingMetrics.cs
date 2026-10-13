@@ -12,6 +12,7 @@ public sealed class EventTicketingMetrics
 
     private readonly Counter<long> _seatHoldConflicts;
     private readonly Counter<long> _seatHoldConcurrencyConflicts;
+    private readonly Counter<long> _reservationsExpired;
 
     public EventTicketingMetrics(IMeterFactory meterFactory)
     {
@@ -19,9 +20,12 @@ public sealed class EventTicketingMetrics
         _seatHoldConflicts = meter.CreateCounter<long>("seat_hold_conflicts_total", description: "Seat hold requests refused with seat.unavailable.");
         _seatHoldConcurrencyConflicts = meter.CreateCounter<long>(
             "seat_hold_concurrency_conflicts_total", description: "Seat holds that lost an optimistic concurrency race (DbUpdateConcurrencyException).");
+        _reservationsExpired = meter.CreateCounter<long>("reservations_expired_total", description: "Pending reservations turned Expired by the sweeper.");
     }
 
     public void SeatHoldConflict() => _seatHoldConflicts.Add(1);
 
     public void SeatHoldConcurrencyConflict() => _seatHoldConcurrencyConflicts.Add(1);
+
+    public void ReservationsExpired(int count) => _reservationsExpired.Add(count);
 }

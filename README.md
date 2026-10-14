@@ -84,6 +84,19 @@ curl -s localhost:8080/api/v1/reservations/$RES/payments -H "Authorization: Bear
 # Bilet e-postası: http://localhost:8025 (Notification servisi çalışıyorken)
 ```
 
+### Web ön yüzü
+
+`web/` altında React + TypeScript + Vite ile yazılmış Türkçe bir ön yüz var. API'yi tarayıcıdan müşteri, organizatör
+ve admin olarak denemek içindir; telefonda da çalışır. API `dotnet run` ile `:8080`'de çalışırken:
+
+```bash
+cd web
+npm install        # ilk seferde
+npm run dev        # http://localhost:5173 — /api istekleri :8080'e yönlendirilir (proxy)
+```
+
+Kontroller: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` (CI'da ayrı `web` işi). Node.js 22 gerekir.
+
 ### Notification servisi (v3)
 
 ```bash

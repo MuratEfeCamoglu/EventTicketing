@@ -60,3 +60,4 @@ nunit-*.xml
 node_modules/
 web/dist/
 .superpowers/
+*.tsbuildinfo

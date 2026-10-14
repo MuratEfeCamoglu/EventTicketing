@@ -2,6 +2,10 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { ReservationsPage } from '../account/ReservationsPage';
 import { TicketsPage } from '../account/TicketsPage';
 import { AdminLayout } from '../admin/AdminLayout';
+import { HallBuilderPage } from '../admin/HallBuilderPage';
+import { RolesPage } from '../admin/RolesPage';
+import { VenueDetailPage } from '../admin/VenueDetailPage';
+import { VenuesPage } from '../admin/VenuesPage';
 import { RequireRole } from '../auth/RequireRole';
 import { ReservationPage } from '../checkout/ReservationPage';
 import { EventPage } from '../events/EventPage';
@@ -36,6 +40,10 @@ export const router = createBrowserRouter([
           { path: 'etkinlikler', element: <MyEventsPage /> },
           { path: 'etkinlikler/yeni', element: <EventFormPage /> },
           { path: 'etkinlikler/:id/duzenle', element: <EventFormPage /> },
+          { path: 'mekanlar', element: <RequireRole roles={['Admin']}><VenuesPage /></RequireRole> },
+          { path: 'mekanlar/:id', element: <RequireRole roles={['Admin']}><VenueDetailPage /></RequireRole> },
+          { path: 'mekanlar/:id/salon-ekle', element: <RequireRole roles={['Admin']}><HallBuilderPage /></RequireRole> },
+          { path: 'roller', element: <RequireRole roles={['Admin']}><RolesPage /></RequireRole> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
-import { memo, useMemo, useRef, useState, type MouseEvent, type FocusEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent, type FocusEvent } from 'react';
 import type { SeatDto } from '../api/types';
 import { formatPrice } from '../lib/format';
 import { cx } from '../ui/cx';
@@ -41,7 +41,7 @@ const Seat = memo(function Seat({ seat, selected, readOnly, onToggle }: { seat: 
   return (
     <button
       type="button"
-      data-tip={`${label} · ${formatPrice(seat.price)}`}
+      data-tip={readOnly ? label : `${label} · ${formatPrice(seat.price)}`}
       aria-label={`${label}, ${formatPrice(seat.price)}, ${stateText[state]}`}
       aria-pressed={state === 'selected'}
       disabled={readOnly || state === 'held' || state === 'sold'}
@@ -83,8 +83,32 @@ export function SeatLegend() {
 export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }: Props) {
   const layout = useMemo(() => buildSeatLayout(seats, sectionOrder), [seats, sectionOrder]);
   const [zoom, setZoom] = useState(1);
+  const userZoomed = useRef(false);
   const viewport = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
+
+  // A hall wider than its box starts zoomed out to fit; once the user zooms, their choice stays.
+  useEffect(() => {
+    const box = viewport.current;
+    const inner = content.current;
+    if (!box || !inner || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      if (userZoomed.current) return;
+      const current = Number(inner.style.zoom || 1);
+      const natural = inner.scrollWidth / current;
+      const next = natural > box.clientWidth ? Math.max(ZOOM_MIN, Math.floor((box.clientWidth / natural) * 20) / 20) : 1;
+      setZoom(next);
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [layout]);
+
+  const changeZoom = (delta: number) => {
+    userZoomed.current = true;
+    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((z + delta) * 100) / 100)));
+  };
 
   function showTip(target: EventTarget) {
     const el = target as HTMLElement;
@@ -106,13 +130,13 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SeatLegend />
+        {readOnly ? <span className="text-xs text-muted">Salt okunur önizleme</span> : <SeatLegend />}
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Uzaklaştır" disabled={zoom <= ZOOM_MIN + 0.01} onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))} className="grid size-8 place-items-center rounded-lg border border-line-strong bg-surface text-ink-soft hover:bg-page disabled:opacity-40">
+          <button type="button" aria-label="Uzaklaştır" disabled={zoom <= ZOOM_MIN + 0.01} onClick={() => changeZoom(-ZOOM_STEP)} className="grid size-8 place-items-center rounded-lg border border-line-strong bg-surface text-ink-soft hover:bg-page disabled:opacity-40">
             <Minus className="size-4" />
           </button>
           <span className="w-12 text-center text-xs tabular-nums text-muted">{Math.round(zoom * 100)}%</span>
-          <button type="button" aria-label="Yakınlaştır" disabled={zoom >= ZOOM_MAX - 0.01} onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))} className="grid size-8 place-items-center rounded-lg border border-line-strong bg-surface text-ink-soft hover:bg-page disabled:opacity-40">
+          <button type="button" aria-label="Yakınlaştır" disabled={zoom >= ZOOM_MAX - 0.01} onClick={() => changeZoom(ZOOM_STEP)} className="grid size-8 place-items-center rounded-lg border border-line-strong bg-surface text-ink-soft hover:bg-page disabled:opacity-40">
             <Plus className="size-4" />
           </button>
         </div>
@@ -128,7 +152,7 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
         onBlur={hideTip}
         onScroll={hideTip}
       >
-        <div className="mx-auto w-max min-w-full px-6 pb-8 pt-6" style={{ zoom }}>
+        <div ref={content} className="mx-auto w-max min-w-full px-6 pb-8 pt-6" style={{ zoom }}>
           <div className="mx-auto mb-8 max-w-xl">
             <div className="h-6 rounded-[50%/100%_100%_0_0] border-t-4 border-brand/40 shadow-[0_-8px_18px_-6px_rgb(37_99_235/0.35)]" />
             <p className="-mt-2 text-center text-[11px] font-semibold tracking-[0.3em] text-muted">SAHNE</p>
@@ -136,7 +160,12 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
           {layout.map((section) => (
             <section key={section.name} className="mb-6 last:mb-0" aria-label={`${section.name} bölümü`}>
               <h3 className="mb-2 text-center text-xs font-bold tracking-wide text-ink-soft">
-                {section.name.toLocaleUpperCase('tr')} <span className="font-medium text-muted">· {formatPrice(section.price)}</span>
+                {section.name.toLocaleUpperCase('tr')}{' '}
+                {readOnly ? (
+                  <span className="font-medium text-muted">· {section.rows.reduce((n, r) => n + r.left.length + r.right.length, 0)} koltuk</span>
+                ) : (
+                  <span className="font-medium text-muted">· {formatPrice(section.price)}</span>
+                )}
               </h3>
               <div className="flex flex-col items-center gap-1.5">
                 {section.rows.map((row) => (

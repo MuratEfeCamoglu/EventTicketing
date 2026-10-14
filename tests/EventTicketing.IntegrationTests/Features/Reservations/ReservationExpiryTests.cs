@@ -14,6 +14,7 @@ public sealed class ReservationExpiryTests(ApiFactory factory) : ApiTestBase(fac
 
     [Fact]
     [Trait("AC", "AC-09.3")]
+    [Trait("AC", "AC-18.3")]
     public async Task SweepOnceAsync_ExpiredPending_ExpiresAndFreesOnlyItsOwnSeats()
     {
         var (eventId, seatIds) = await Factory.CreateEventOnSaleAsync();

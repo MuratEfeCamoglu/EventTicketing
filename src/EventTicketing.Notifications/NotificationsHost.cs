@@ -20,6 +20,7 @@ public static class NotificationsHost
     {
         var builder = Host.CreateApplicationBuilder(settings);
         builder.AddLogging();
+        builder.AddTelemetry();
 
         var isProduction = builder.Environment.IsProduction();
         builder.Services.AddOptions<ConnectionStringOptions>()

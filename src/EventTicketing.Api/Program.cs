@@ -14,6 +14,7 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddLogging();
+builder.AddTelemetry();
 builder.AddPersistence();
 builder.AddCaching();
 builder.AddSeatLocking();

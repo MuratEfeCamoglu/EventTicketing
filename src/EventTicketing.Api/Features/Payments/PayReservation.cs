@@ -1,6 +1,7 @@
 using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
 using EventTicketing.Api.Infrastructure.Caching;
+using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
 using EventTicketing.Contracts;
@@ -41,6 +42,7 @@ public static class PayReservation
         IPaymentGateway gateway,
         IPublishEndpoint publisher,
         EventCacheInvalidator cache,
+        EventTicketingMetrics metrics,
         TimeProvider clock,
         ILogger<Handler> logger)
     {
@@ -118,6 +120,7 @@ public static class PayReservation
                 return null;
             }
 
+            metrics.TicketsSold(seats.Count);
             logger.LogInformation("Reservation {ReservationId} paid with payment {PaymentId}; {TicketCount} tickets issued", reservation.Id, payment.Id, seats.Count);
             return new Response(payment.Id, payment.Status, await TicketsOfAsync(reservation.Id, cancellationToken));
         }

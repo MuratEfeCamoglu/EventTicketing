@@ -206,6 +206,24 @@ Notification servisi tarafında:
 - **Teslim garantisi en az bir kez'dir:** servis e-postayı gönderip inbox kaydını commit etmeden çökerse aynı e-posta
   ikinci kez gidebilir. Bu bilinçli olarak kabul edildi; e-posta tekrarı zararsız, kaybı değil.
 
+### Gözlemlenebilirlik (v3)
+
+API ve Notification servisi OpenTelemetry ile trace, metrik ve logları OTLP üzerinden compose'daki **Aspire
+Dashboard**'a gönderir: `http://localhost:18888`. Development ayarlarında `OTEL_EXPORTER_OTLP_ENDPOINT` =
+`http://localhost:4317`; bu anahtar boşsa dışa aktarım tamamen kapalıdır (testlerde olduğu gibi).
+
+- **Trace:** ASP.NET Core, HttpClient, Npgsql ve MassTransit. MassTransit trace bağlamını mesaj başlıklarında taşıdığı
+  için tek bir ödeme, Dashboard'da API'nin HTTP isteğini, SQL komutlarını, outbox'tan RabbitMQ'ya gönderimi ve
+  Notification servisindeki tüketimi içeren **tek bir trace** olarak görünür:
+
+  ![Bir ödemenin uçtan uca trace'i](docs/observability.png)
+
+- **Metrikler:** ASP.NET Core, HttpClient, .NET runtime, MassTransit ve uygulamanın sayaçları:
+  `tickets_sold_total`, `seat_hold_conflicts_total`, `seat_hold_concurrency_conflicts_total`,
+  `reservations_expired_total`.
+- **Loglar:** Serilog konsola ek olarak OTLP'ye de yazar; Dashboard'da trace ile ilişkilendirilmiş görünür.
+- Redis komutları trace'e eklenmez: `OpenTelemetry.Instrumentation.StackExchangeRedis`'in kararlı sürümü yok.
+
 ## Endpoint özeti
 
 Tüm yollar `/api/v1` önekiyle sunulur. Tam sözleşme `/openapi/v1.json` ve Scalar UI'dadır.

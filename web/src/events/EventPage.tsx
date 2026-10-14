@@ -5,6 +5,7 @@ import { NotFoundPage } from '../app/NotFoundPage';
 import { categoryLabel, formatDateTime, formatPrice, formatTime } from '../lib/format';
 import { Badge } from '../ui/Badge';
 import { Card, EmptyState } from '../ui/Card';
+import { SeatSelection } from '../seating/SeatSelection';
 import { LoadingBlock } from '../ui/Spinner';
 import { categoryStyle } from './EventCard';
 import { useEvent } from './queries';
@@ -59,7 +60,7 @@ export function EventPage() {
         </div>
       </Card>
 
-      <section aria-label="Koltuk seçimi" data-hall={hall.id} />
+      <SeatSelection eventId={event.id} hall={hall} />
     </div>
   );
 }

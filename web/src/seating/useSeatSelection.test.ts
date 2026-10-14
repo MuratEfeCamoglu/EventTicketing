@@ -43,4 +43,18 @@ describe('useSeatSelection', () => {
 
     expect(result.current.selected.map((s) => s.eventSeatId)).toEqual(['s2']);
   });
+
+  it('drops seats that are no longer available before counting the limit', () => {
+    const { result } = renderHook(() => useSeatSelection(2));
+    act(() => void result.current.toggle(seat(1)));
+    act(() => void result.current.toggle(seat(2)));
+
+    let outcome = '';
+    act(() => {
+      outcome = result.current.toggle(seat(3), new Set(['s2', 's3']));
+    });
+
+    expect(outcome).toBe('added');
+    expect(result.current.selected.map((s) => s.eventSeatId)).toEqual(['s2', 's3']);
+  });
 });

@@ -39,3 +39,8 @@ export function buildSeatLayout(seats: SeatDto[], sectionOrder: string[]): Layou
     return { name, price, rows: ordered };
   });
 }
+
+/** Structure of a layout without seat states: changes only when the hall's sections, rows or seat counts change. */
+export function layoutShape(layout: LayoutSection[]): string {
+  return layout.map((s) => `${s.name}:${s.rows.map((r) => `${r.label}=${r.left.length + r.right.length}`).join(',')}`).join('|');
+}

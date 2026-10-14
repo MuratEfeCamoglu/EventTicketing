@@ -41,9 +41,9 @@ export function SeatSelection({ eventId, hall }: { eventId: string; hall: HallDe
   const { toggle: toggleSeat } = selection;
   const toggle = useCallback(
     (seat: SeatDto) => {
-      if (toggleSeat(seat) === 'limit') toast.error(`Bir rezervasyonda en fazla ${MAX_SEATS} koltuk seçebilirsiniz.`);
+      if (toggleSeat(seat, available) === 'limit') toast.error(`Bir rezervasyonda en fazla ${MAX_SEATS} koltuk seçebilirsiniz.`);
     },
-    [toggleSeat, toast],
+    [toggleSeat, toast, available],
   );
 
   function holdSeats() {

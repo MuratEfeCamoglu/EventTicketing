@@ -16,6 +16,8 @@ import { Modal } from '../ui/Modal';
 import { LoadingBlock } from '../ui/Spinner';
 import { useToast } from '../ui/Toast';
 import { cx } from '../ui/cx';
+import { useAuth } from '../auth/AuthProvider';
+import { paymentOutcome, reservationRefetchInterval } from './outcomes';
 import { PaymentForm } from './PaymentForm';
 import { reservationStatus } from './status';
 import { useCountdown } from './useCountdown';
@@ -93,7 +95,13 @@ export function ReservationPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
-  const reservation = useQuery({ queryKey: ['reservation', id], queryFn: () => api<Reservation>(`/reservations/${id}`) });
+  const { session } = useAuth();
+  const expiredLocally = useRef(false);
+  const reservation = useQuery({
+    queryKey: ['reservation', id],
+    queryFn: () => api<Reservation>(`/reservations/${id}`),
+    refetchInterval: (query) => reservationRefetchInterval(query.state.data?.status, expiredLocally.current),
+  });
   const eventId = reservation.data?.eventId;
   const event = useQuery({
     queryKey: ['event-summary', eventId],
@@ -112,7 +120,10 @@ export function ReservationPage() {
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['reservation', id] });
 
+  // At zero the reservation is read again; while the server still says Pending (browser clock ahead), the query keeps
+  // re-reading every 2 s via refetchInterval until the server reports Expired.
   useEffect(() => {
+    expiredLocally.current = countdown.expired;
     if (countdown.expired && reservation.data?.status === 'Pending' && !refreshedAtExpiry.current) {
       refreshedAtExpiry.current = true;
       void queryClient.invalidateQueries({ queryKey: ['reservation', id] });
@@ -128,7 +139,9 @@ export function ReservationPage() {
       refresh();
     } catch (error) {
       if (error instanceof ApiError) {
-        setFailure(error);
+        const outcome = paymentOutcome(error);
+        if (outcome.kind === 'message') toast.error(outcome.message);
+        else setFailure(error);
         void queryClient.invalidateQueries({ queryKey: ['seats'] });
         refresh();
       } else {
@@ -202,13 +215,19 @@ export function ReservationPage() {
             <span>Toplam</span>
             <span>{formatPrice(r.totalAmount)}</span>
           </div>
-          <Button variant="dangerGhost" className="mt-5" onClick={() => setConfirmCancel(true)}>
-            Rezervasyonu iptal et
-          </Button>
+          {session?.role === 'Customer' && (
+            <Button variant="dangerGhost" className="mt-5" onClick={() => setConfirmCancel(true)}>
+              Rezervasyonu iptal et
+            </Button>
+          )}
         </Card>
         <Card className="p-5 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Ödeme</h2>
-          <PaymentForm total={r.totalAmount} pending={payment.pending} disabled={countdown.expired} onPay={(t) => void pay(t)} />
+          {session?.role === 'Customer' ? (
+            <PaymentForm total={r.totalAmount} pending={payment.pending} disabled={countdown.expired} onPay={(t) => void pay(t)} />
+          ) : (
+            <p className="rounded-lg bg-brand-soft px-3 py-2.5 text-sm text-brand">Ödemeyi yalnız rezervasyonun sahibi olan müşteri yapabilir.</p>
+          )}
         </Card>
       </div>
       <Modal open={confirmCancel} title="Rezervasyon iptal edilsin mi?" confirmLabel="İptal et" tone="danger" busy={cancelling} onConfirm={() => void cancel()} onClose={() => setConfirmCancel(false)}>

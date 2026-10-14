@@ -65,6 +65,10 @@ describe('validateEventForm', () => {
     expect(validateEventForm({ ...values, prices: { Salon: '750' } }, ['Salon', 'Balkon'])).toEqual({ 'price:Balkon': 'Bu bölüm için 0’dan büyük bir fiyat girin.' });
   });
 
+  it('accepts 19,99 and 1.250 as valid prices', () => {
+    expect(validateEventForm({ ...values, prices: { Salon: '19,99', Balkon: '1.250' } }, ['Salon', 'Balkon'])).toEqual({});
+  });
+
   it('rejects an end before the start, an empty title and a price over the limit', () => {
     const errors = validateEventForm({ ...emptyEventForm, hallId: 'h1', startsAt: '2026-11-20T20:00', endsAt: '2026-11-20T19:00', prices: { Salon: '100001' } }, ['Salon']);
 

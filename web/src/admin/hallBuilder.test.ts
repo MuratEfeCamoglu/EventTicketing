@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHallRequest, parseRowRange, previewSeats } from './hallBuilder';
+import { buildHallRequest, parseRowRange, previewSeats, safePreviewSeats } from './hallBuilder';
 
 describe('parseRowRange', () => {
   it('expands letter and number ranges', () => {
@@ -55,5 +55,19 @@ describe('previewSeats', () => {
       ['Salon', 'A', 2, 'Available'],
       ['Salon', 'A', 3, 'Available'],
     ]);
+  });
+});
+
+describe('safePreviewSeats', () => {
+  it('builds nothing for a hall over the limit, so a typo cannot freeze the page', () => {
+    const { request, seatCount } = buildHallRequest('Dev', [{ name: 'Salon', rows: 'A-Z', seatsPerRow: 200000 }]);
+
+    expect(safePreviewSeats(request, seatCount)).toEqual([]);
+  });
+
+  it('builds the preview within the limit', () => {
+    const { request, seatCount } = buildHallRequest('X', [{ name: 'Salon', rows: 'A-B', seatsPerRow: 3 }]);
+
+    expect(safePreviewSeats(request, seatCount)).toHaveLength(6);
   });
 });

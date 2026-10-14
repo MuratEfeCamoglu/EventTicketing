@@ -17,13 +17,17 @@ export function useSeatSelection(max = MAX_SEATS) {
   }, []);
 
   const toggle = useCallback(
-    (seat: SeatDto): ToggleOutcome => {
-      const list = current.current;
+    (seat: SeatDto, available?: Set<string>): ToggleOutcome => {
+      // Seats taken by others since they were chosen leave the selection, so they no longer count toward the limit.
+      const list = available ? current.current.filter((s) => available.has(s.eventSeatId)) : current.current;
       if (list.some((s) => s.eventSeatId === seat.eventSeatId)) {
         commit(list.filter((s) => s.eventSeatId !== seat.eventSeatId));
         return 'removed';
       }
-      if (list.length >= max) return 'limit';
+      if (list.length >= max) {
+        if (list.length !== current.current.length) commit(list);
+        return 'limit';
+      }
       commit([...list, seat]);
       return 'added';
     },

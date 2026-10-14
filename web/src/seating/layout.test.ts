@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SeatDto } from '../api/types';
-import { buildSeatLayout, seatLabel } from './layout';
+import { buildSeatLayout, layoutShape, seatLabel } from './layout';
 
 let next = 0;
 function seat(section: string, row: string, number: number, price = 450, status: SeatDto['status'] = 'Available'): SeatDto {
@@ -45,5 +45,15 @@ describe('buildSeatLayout', () => {
 
   it('labels a seat with section, row and number', () => {
     expect(seatLabel(seat('Balkon', 'C', 7))).toBe('Balkon C-7');
+  });
+});
+
+describe('layoutShape', () => {
+  it('ignores seat status changes, so polling does not re-fit or re-centre the map', () => {
+    const free = [seat('S', 'A', 1), seat('S', 'A', 2)];
+    const taken = free.map((s, i) => (i === 0 ? { ...s, status: 'Held' as const } : s));
+
+    expect(layoutShape(buildSeatLayout(taken, ['S']))).toBe(layoutShape(buildSeatLayout(free, ['S'])));
+    expect(layoutShape(buildSeatLayout([...free, seat('S', 'B', 1)], ['S']))).not.toBe(layoutShape(buildSeatLayout(free, ['S'])));
   });
 });

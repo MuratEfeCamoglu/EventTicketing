@@ -9,7 +9,7 @@ import { Button } from '../ui/Button';
 import { Card, PageHeader } from '../ui/Card';
 import { Field, TextInput } from '../ui/Field';
 import { useToast } from '../ui/Toast';
-import { buildHallRequest, previewSeats, type SectionDraft } from './hallBuilder';
+import { buildHallRequest, safePreviewSeats, type SectionDraft } from './hallBuilder';
 
 const starter: SectionDraft[] = [
   { name: 'Salon', rows: 'A-L', seatsPerRow: 20 },
@@ -32,7 +32,7 @@ export function HallBuilderPage() {
   const queryClient = useQueryClient();
 
   const { request, seatCount, errors } = useMemo(() => buildHallRequest(name, sections), [name, sections]);
-  const preview = useMemo(() => previewSeats(request), [request]);
+  const preview = useMemo(() => safePreviewSeats(request, seatCount), [request, seatCount]);
   // The event seat map shows sections in the order GET /halls/{id} returns them: by name.
   const order = useMemo(() => request.sections.map((s) => s.name).sort(sectionCollator.compare), [request]);
 

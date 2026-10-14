@@ -3,7 +3,7 @@ import { memo, useEffect, useMemo, useRef, useState, type MouseEvent, type Focus
 import type { SeatDto } from '../api/types';
 import { formatPrice } from '../lib/format';
 import { cx } from '../ui/cx';
-import { buildSeatLayout, seatLabel } from './layout';
+import { buildSeatLayout, layoutShape, seatLabel } from './layout';
 
 type Props = {
   seats: SeatDto[];
@@ -82,6 +82,8 @@ export function SeatLegend() {
  */
 export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }: Props) {
   const layout = useMemo(() => buildSeatLayout(seats, sectionOrder), [seats, sectionOrder]);
+  // Seat states change on every poll; only a different hall structure re-fits and re-centres the map.
+  const shape = useMemo(() => layoutShape(layout), [layout]);
   const [zoom, setZoom] = useState(1);
   const userZoomed = useRef(false);
   const viewport = useRef<HTMLDivElement>(null);
@@ -93,13 +95,16 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
     const box = viewport.current;
     const inner = content.current;
     if (!box || !inner || typeof ResizeObserver === 'undefined') return;
+    let centred = false;
     const fit = () => {
       if (userZoomed.current) return;
       const current = Number(inner.style.zoom || 1);
       const natural = inner.scrollWidth / current;
       const next = natural > box.clientWidth ? Math.max(ZOOM_MIN, Math.floor((box.clientWidth / natural) * 20) / 20) : 1;
       setZoom(next);
-      // Whatever still does not fit opens at its centre, where the stage is.
+      if (centred) return;
+      centred = true;
+      // Whatever still does not fit opens at its centre, where the stage is; later viewport resizes keep the position.
       requestAnimationFrame(() => {
         box.scrollLeft = Math.max(0, (box.scrollWidth - box.clientWidth) / 2);
       });
@@ -107,7 +112,7 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
     const observer = new ResizeObserver(fit);
     observer.observe(box);
     return () => observer.disconnect();
-  }, [layout]);
+  }, [shape]);
 
   const changeZoom = (delta: number) => {
     userZoomed.current = true;

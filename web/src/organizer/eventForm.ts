@@ -30,8 +30,23 @@ const TITLE_MAX = 200;
 const DESCRIPTION_MAX = 4000;
 const MAX_PRICE = 100_000;
 
+const THOUSANDS = /^\d{1,3}(\.\d{3})+(,\d{1,2})?$/;
+const PLAIN = /^\d+([.,]\d{1,2})?$/;
+
+/**
+ * Price text to number, the Turkish way: "1.250,50" (dot for thousands, comma for decimals), "19,99", "450.5".
+ * Anything else, e.g. "1,234", is NaN, so a mistyped price is rejected instead of being saved as another amount.
+ */
 export function parsePrice(text: string | undefined): number {
-  return text ? Number(text.trim().replace(/\s/g, '').replace(',', '.')) : Number.NaN;
+  const value = (text ?? '').replace(/\s/g, '');
+  if (THOUSANDS.test(value)) return Number(value.replace(/\./g, '').replace(',', '.'));
+  if (PLAIN.test(value)) return Number(value.replace(',', '.'));
+  return Number.NaN;
+}
+
+/** 450.5 becomes "450,5" for the price input. */
+export function formatPriceInput(price: number): string {
+  return String(price).replace('.', ',');
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -55,7 +70,7 @@ export function toEventRequest(values: EventFormValues, sections: string[]): Eve
 }
 
 export function fromEvent(event: EventDetail, hall: HallDetail): EventFormValues {
-  const prices = Object.fromEntries(event.sectionPrices.map((p) => [p.section, String(p.price)]));
+  const prices = Object.fromEntries(event.sectionPrices.map((p) => [p.section, formatPriceInput(p.price)]));
   return {
     title: event.title,
     description: event.description,
@@ -79,10 +94,11 @@ export function validateEventForm(values: EventFormValues, sections: string[]): 
   if (!values.endsAt) errors.endsAt = 'Bitiş zamanını girin.';
   else if (values.startsAt && new Date(values.endsAt) <= new Date(values.startsAt)) errors.endsAt = 'Bitiş, başlangıçtan sonra olmalı.';
   for (const section of sections) {
-    const price = parsePrice(values.prices[section]);
-    if (!Number.isFinite(price) || price <= 0) errors[`price:${section}`] = 'Bu bölüm için 0’dan büyük bir fiyat girin.';
+    const text = values.prices[section]?.trim() ?? '';
+    const price = parsePrice(text);
+    if (text && Number.isNaN(price)) errors[`price:${section}`] = 'Fiyatı 1.250,50 ya da 19,99 biçiminde girin.';
+    else if (!Number.isFinite(price) || price <= 0) errors[`price:${section}`] = 'Bu bölüm için 0’dan büyük bir fiyat girin.';
     else if (price > MAX_PRICE) errors[`price:${section}`] = 'Fiyat en fazla 100.000 ₺ olabilir.';
-    else if (Math.round(price * 100) !== price * 100) errors[`price:${section}`] = 'Fiyatta en fazla 2 ondalık olabilir.';
   }
   return errors;
 }

@@ -80,3 +80,8 @@ export function previewSeats(request: CreateHallRequest): SeatDto[] {
     ),
   );
 }
+
+/** The preview only for halls within the limit: a typo such as 200,000 seats per row must not allocate millions of seats. */
+export function safePreviewSeats(request: CreateHallRequest, seatCount: number): SeatDto[] {
+  return seatCount >= MIN_SEATS && seatCount <= MAX_SEATS ? previewSeats(request) : [];
+}

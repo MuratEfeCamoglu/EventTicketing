@@ -35,9 +35,10 @@ builder.Services.AddHostedService<ReservationExpiryService>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemDetailsSetup.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.UseConcreteVersionPaths());
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFeatureSlices(typeof(Program).Assembly);
+builder.Services.AddEventTicketingApiVersioning();
 
 var app = builder.Build();
 
@@ -46,6 +47,7 @@ await app.InitializeDatabaseAsync();
 app.UseRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseUnsupportedApiVersionResponse();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseEventTicketingRateLimiting();

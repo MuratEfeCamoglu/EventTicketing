@@ -35,10 +35,11 @@ public sealed class EndpointRegistrationTests
     }
 
     [Fact]
-    public void MapFeatureEndpoints_DiscoveredEndpoint_IsMappedUnderApiV1()
+    public void MapFeatureEndpoints_DiscoveredEndpoint_IsMappedUnderVersionedApiPrefix()
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Services.AddFeatureSlices(typeof(EndpointRegistrationTests).Assembly);
+        builder.Services.AddEventTicketingApiVersioning();
         var app = builder.Build();
 
         app.MapFeatureEndpoints();
@@ -47,6 +48,6 @@ public sealed class EndpointRegistrationTests
             .SelectMany(s => s.Endpoints)
             .OfType<RouteEndpoint>()
             .Select(e => e.RoutePattern.RawText);
-        routes.ShouldContain("/api/v1/sample");
+        routes.ShouldContain($"{EndpointRegistration.VersionedPrefix}/sample");
     }
 }

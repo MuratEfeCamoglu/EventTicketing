@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
 using EventTicketing.IntegrationTests.Fixtures;
 using Microsoft.AspNetCore.Routing;
@@ -65,7 +66,7 @@ public sealed partial class AuthorizationMatrixTests(ApiFactory factory) : ApiTe
         var mapped = Factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
             .Where(e => e.RoutePattern.RawText?.StartsWith("/api/", StringComparison.Ordinal) == true)
-            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? []).Select(m => $"{m} {RouteConstraint().Replace(e.RoutePattern.RawText!, "}")}"))
+            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? []).Select(m => $"{m} {DocumentedRoute(e.RoutePattern.RawText!)}"))
             .Order()
             .ToList();
 
@@ -82,6 +83,10 @@ public sealed partial class AuthorizationMatrixTests(ApiFactory factory) : ApiTe
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json"),
         };
+
+    /// <summary>The matrix form of a mapped route: version 1 in the URL, no constraints (<c>/api/v{version:apiVersion}/x/{id:guid}</c> → <c>/api/v1/x/{id}</c>).</summary>
+    private static string DocumentedRoute(string pattern) =>
+        RouteConstraint().Replace(pattern.Replace(EndpointRegistration.VersionedPrefix, EndpointRegistration.ApiPrefix, StringComparison.Ordinal), "}");
 
     /// <summary>Strips route constraints: <c>{id:guid}</c> → <c>{id}</c>.</summary>
     [GeneratedRegex(":[^}]+}")]

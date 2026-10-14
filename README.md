@@ -237,6 +237,13 @@ Sınırı aşan istek `429` + `rate_limit.exceeded` ProblemDetails ve `Retry-Aft
 `RateLimiting:Enabled=false` ile kapatılır; integration testleri ve k6 koşuları kapalı çalışır
 (k6 için `RateLimiting__Enabled=false` ortam değişkeni).
 
+### API sürümleme (bonus)
+
+Sürüm URL segmentindedir (`Asp.Versioning.Http`): bugün yalnız `1.0` vardır ve her yanıt
+`api-supported-versions: 1.0` başlığını taşır. Desteklenmeyen bir sürüm (ör. `/api/v2/events`) `400`
+`validation.failed` ProblemDetails alır. Asp.Versioning URL segmentinde bu durumda her zaman `404` döndürdüğü için
+400'ü küçük bir middleware üretir. OpenAPI belgesinde yollar `/api/v1/...` olarak görünür.
+
 ## Endpoint özeti
 
 Tüm yollar `/api/v1` önekiyle sunulur. Tam sözleşme `/openapi/v1.json` ve Scalar UI'dadır.

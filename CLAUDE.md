@@ -24,6 +24,7 @@ o aşamadan itibaren çalışır.
 - `src/EventTicketing.Api/Features/<Alan>/<UseCase>.cs` — bir use case = bir dosya
 - `src/EventTicketing.Api/Domain/` — entity'ler ve durum geçişleri
 - `src/EventTicketing.Api/Infrastructure/Persistence/` — `AppDbContext`, konfigürasyonlar, migration'lar, seed
+- `src/EventTicketing.Contracts/` — mesaj sözleşmeleri (`TicketPurchased`); `src/EventTicketing.Notifications/` — e-posta worker'ı
 - `tests/EventTicketing.UnitTests/`, `tests/EventTicketing.IntegrationTests/`, `tests/load/`
 - `docs/decisions.md` — dokümanlarda olmayan kararların günlüğü
 
@@ -40,6 +41,7 @@ dotnet user-secrets set "Jwt:SigningKey" "$(openssl rand -base64 48)" --project 
 docker compose up -d                           # PostgreSQL, Redis, Mailpit, RabbitMQ, Aspire Dashboard
 dotnet run --project src/EventTicketing.Api    # http://localhost:8080 · Scalar: /scalar · OpenAPI: /openapi/v1.json
 dotnet watch --project src/EventTicketing.Api  # hot reload
+dotnet run --project src/EventTicketing.Notifications   # v3: bilet e-postası (RabbitMQ → Mailpit)
 ```
 Development ortamında migration'lar ve seed başlangıçta uygulanır (`Database:MigrateOnStartup`).
 Seed kullanıcıları: `appsettings.Development.json` → `Seed` bölümü.
@@ -120,6 +122,6 @@ k6 run tests/load/browse.js && k6 run tests/load/hot-seat.js
   reddedilir (ISKELET §5.11).
 - Redis lock doğruluk kaynağı değildir; Redis yokken akış DB korumasıyla devam eder (ISKELET §5.4).
 - MassTransit 9+ ticari lisanslıdır; 8.x'te kalınır.
-- Integration testleri compose servisleri (PostgreSQL, Redis, Mailpit) çalışmıyorsa çalışmaz; PostgreSQL bağlantısı
+- Integration testleri compose servisleri (PostgreSQL, Redis, Mailpit, RabbitMQ) çalışmıyorsa çalışmaz; PostgreSQL bağlantısı
   `EVENTTICKETING_TEST_POSTGRES` ortam değişkeninden okunur (yoksa
   `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`). Hata alırsan önce `docker compose ps`.

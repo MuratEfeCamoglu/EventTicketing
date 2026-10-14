@@ -29,7 +29,7 @@ Compose ile çalışır; API `dotnet run` ile.
 | Docker Desktop (WSL 2) | Bağımlı servisler için; `docker compose version` |
 
 Bağımlı servisler kökteki [`compose.yaml`](compose.yaml) ile başlatılır (imaj sürümleri orada sabittir, portlar
-yalnız `127.0.0.1`'e açılır):
+yalnız loopback'e, `127.0.0.1` ve `::1`'e açılır):
 
 ```bash
 docker compose up -d     # ilk seferde imajlar indirilir
@@ -77,8 +77,20 @@ RES=$(curl -s localhost:8080/api/v1/events/$EVENT/reservations -H "Authorization
   -H 'Content-Type: application/json' -d "{\"eventSeatIds\":[\"$SEAT\"]}" | jq -r .reservationId)
 curl -s localhost:8080/api/v1/reservations/$RES/payments -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' -d '{"paymentToken":"tok_success"}'
-# Bilet e-postası: http://localhost:8025
+# Bilet e-postası: http://localhost:8025 (Notification servisi çalışıyorken)
 ```
+
+### Notification servisi (v3)
+
+```bash
+dotnet run --project src/EventTicketing.Notifications
+```
+
+Bilet e-postasını bu servis gönderir: RabbitMQ'daki `ticket-purchased` kuyruğundan `TicketPurchased` mesajını alır,
+QR PNG'lerini üretir ve Mailpit'e (SMTP `localhost:1025`) yollar. API'yle aynı PostgreSQL'i kullanır, ancak yalnız
+kendi `notifications` şemasındaki MassTransit inbox tablolarına yazar; Development'ta migration'larını başlangıçta
+uygular. Kuyruk ilk başlatmada oluşur ve exchange'e bağlanır; bundan önce yayımlanan mesajları alacak kuyruk yoktur,
+bu yüzden servisi ilk ödemeden önce bir kez başlatın.
 
 ## Mimari: Vertical Slice
 
@@ -174,8 +186,8 @@ okunan veriyle verilmez; koltuk tutma ve ödeme her zaman veritabanından okur.
 - Ödeme başarılı olur ama onay yarışı kaybedilirse (rezervasyonun süresi doldu, iptal edildi, aynı anahtarla eşzamanlı
   istek geldi) ödeme iade edilir ve aynı anahtarla `Refunded` kaydı yazılır.
 - Reddedilen ödemede rezervasyon `PaymentFailed` olur ve koltuklar serbest kalır.
-- E-posta commit'ten sonra best-effort gönderilir. SMTP'ye ulaşılamazsa ödeme yanıtı yine `200` olur ve hata loglanır.
-  V3-2'de bu gönderim aşağıdaki outbox mesajını tüketen Notification servisine taşınır.
+- E-postayı API göndermez (SMTP'ye bağlanmaz). Ödeme aşağıdaki outbox mesajını bırakır, e-postayı Notification
+  servisi gönderir; SMTP'ye ulaşılamasa da ödeme yanıtı `200`'dür.
 
 ### Outbox (v3)
 
@@ -185,6 +197,14 @@ yarışı kaybedildi) mesaj da yoktur. Commit'ten sonra outbox teslim servisi me
 kapalıyken mesaj tabloda bekler ve bağlantı gelince gönderilir. Bağlantı `ConnectionStrings:RabbitMq` (AMQP URI;
 yerelde compose'daki `eventticketing` / `dev-only-rabbitmq` kullanıcısı). Gönderilen mesajlar RabbitMQ yönetim
 arayüzünde (`http://localhost:15672`) `EventTicketing.Contracts:TicketPurchased` exchange'inde görünür.
+
+Notification servisi tarafında:
+- **Inbox:** consumer MassTransit'in EF inbox'ıyla çalışır; aynı `MessageId` ikinci kez gelirse consumer çağrılmaz,
+  tek e-posta gider.
+- **Retry:** gönderim hata verirse mesaj 1 sn, 5 sn ve 15 sn arayla 3 kez yeniden denenir, sonra
+  `ticket-purchased_error` kuyruğuna düşer (her deneme `Error` seviyesinde, `ReservationId` ile loglanır).
+- **Teslim garantisi en az bir kez'dir:** servis e-postayı gönderip inbox kaydını commit etmeden çökerse aynı e-posta
+  ikinci kez gidebilir. Bu bilinçli olarak kabul edildi; e-posta tekrarı zararsız, kaybı değil.
 
 ## Endpoint özeti
 
@@ -228,8 +248,11 @@ dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResul
   `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`), `EVENTTICKETING_TEST_REDIS`
   (varsayılan `localhost:6379`), `EVENTTICKETING_TEST_MAILPIT` (varsayılan `http://localhost:8025`),
   `EVENTTICKETING_TEST_RABBITMQ` (varsayılan `amqp://eventticketing:dev-only-rabbitmq@localhost:5672/`). Her test
-  koşusu Redis'te kendi anahtar önekini kullanır. Testlerde outbox teslim servisi kapalıdır; mesajlar
-  `outbox_message` tablosunda incelenir.
+  koşusu Redis'te kendi anahtar önekini kullanır. Paylaşılan test host'unda outbox teslim servisi kapalıdır;
+  mesajlar `outbox_message` tablosunda incelenir. E-posta ve mesajlaşma testleri teslimi açık ayrı bir API host'u ve
+  süreç içinde başlatılan Notification servisiyle uçtan uca çalışır (API → RabbitMQ → Notification → Mailpit).
+  Her test koşusu RabbitMQ'da kendi sanal host'unu (`eventticketing-test-<guid>`) açar ve sonunda siler; bu yüzden
+  testler, aynı anda çalışan geliştirme Notification servisinden etkilenmez.
 
 Son ölçüm (2026-10-12): 70 unit + 253 integration testi; `EventTicketing.Api` birleşik satır kapsamı **%92,2** (üretilmiş migration dosyaları hariç; hedef ≥ %70, NFR-05).
 

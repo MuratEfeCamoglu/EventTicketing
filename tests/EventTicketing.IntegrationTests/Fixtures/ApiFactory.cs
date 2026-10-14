@@ -45,13 +45,26 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         $"{Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_REDIS") ?? "localhost:6379"},abortConnect=false,connectTimeout=1000,syncTimeout=1000";
 
     /// <summary>Local RabbitMQ from <c>EVENTTICKETING_TEST_RABBITMQ</c> (default: the compose broker with its dev-only user).</summary>
+    public static Uri RabbitMqServer { get; } =
+        new(Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_RABBITMQ") ?? "amqp://eventticketing:dev-only-rabbitmq@localhost:5672/");
+
+    /// <summary>
+    /// A virtual host of this test run, created before and deleted after it: test messages never meet a running development
+    /// Notification service, nor leftovers of another run.
+    /// </summary>
+    public static string RabbitMqVirtualHost { get; } = $"eventticketing-test-{RunId:N}";
+
     public static string RabbitMqConnectionString { get; } =
-        Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_RABBITMQ") ?? "amqp://eventticketing:dev-only-rabbitmq@localhost:5672/";
+        new UriBuilder(RabbitMqServer) { Path = "/" + Uri.EscapeDataString(RabbitMqVirtualHost) }.Uri.ToString();
 
     /// <summary>Counts SQL commands, so a test can prove a read was served from the cache (AC-15.1).</summary>
     public DbCommandCounter DbCommands { get; } = new();
 
-    public async ValueTask InitializeAsync() => await Postgres.InitializeAsync();
+    public async ValueTask InitializeAsync()
+    {
+        await Postgres.InitializeAsync();
+        await RabbitMqManagement.CreateVirtualHostAsync(RabbitMqVirtualHost);
+    }
 
     /// <summary>Empty database, empty log sink and a cache in which every earlier entry is invalid.</summary>
     public async Task ResetAsync()
@@ -65,10 +78,22 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Clock.Advance(TimeSpan.FromMilliseconds(1));
     }
 
+    /// <summary>
+    /// A host of this factory with the outbox delivery service running, so <c>TicketPurchased</c> reaches RabbitMQ (F-17).
+    /// The shared host keeps it off; see <see cref="ConfigureWebHost"/>.
+    /// </summary>
+    public WebApplicationFactory<Program> WithOutboxDelivery(Action<IWebHostBuilder>? configure = null) =>
+        WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services => services.AddHostedService<BusOutboxDeliveryService<AppDbContext>>());
+            configure?.Invoke(builder);
+        });
+
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
         await Postgres.DisposeAsync();
+        await RabbitMqManagement.DeleteVirtualHostAsync(RabbitMqVirtualHost);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

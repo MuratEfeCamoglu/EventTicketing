@@ -8,7 +8,7 @@ public sealed record MailpitMessage(string Id, string Subject, IReadOnlyList<Mai
 
 /// <summary>
 /// Reads the local Mailpit through its HTTP API (AC-12.1). The base URL comes from <c>EVENTTICKETING_TEST_MAILPIT</c>,
-/// default <c>http://localhost:8025</c>; the API sends SMTP to the <c>Smtp:*</c> defaults (localhost:1025).
+/// default <c>http://localhost:8025</c>; the Notification service sends SMTP to the <c>Smtp:*</c> defaults (localhost:1025).
 /// </summary>
 public static class Mailpit
 {
@@ -34,6 +34,10 @@ public static class Mailpit
 
         return messages;
     }
+
+    /// <summary>Waits until <paramref name="recipient"/> has at least <paramref name="count"/> messages; fails after <paramref name="timeout"/>.</summary>
+    public static Task<IReadOnlyList<MailpitMessage>> WaitForMessagesToAsync(string recipient, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Eventually.WaitForAsync(() => MessagesToAsync(recipient, cancellationToken), messages => messages.Count >= count, timeout, $"{count} e-mail(s) in Mailpit");
 
     private static async Task<JsonElement> GetJsonAsync(string path, CancellationToken cancellationToken)
     {

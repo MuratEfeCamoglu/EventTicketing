@@ -4,7 +4,7 @@ using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace EventTicketing.Api.Infrastructure.Email;
+namespace EventTicketing.Notifications.Email;
 
 /// <summary><c>Smtp:*</c> keys (ISKELET §5.14); the defaults point at a local Mailpit (K-08).</summary>
 public sealed class SmtpOptions
@@ -25,7 +25,7 @@ public sealed class SmtpOptions
 /// <summary>Plain SMTP without authentication or TLS, which is what Mailpit offers locally.</summary>
 public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
 {
-    /// <summary>Upper bound for connect and send, so an unreachable server cannot stall the payment response for long.</summary>
+    /// <summary>Upper bound for connect and send, so an unreachable server fails the attempt quickly and the retry policy takes over.</summary>
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken)

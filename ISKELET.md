@@ -653,7 +653,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 
 ### Aşama 3 — v3 (2 hafta)
 - [x] **V3-1 Outbox:** `EventTicketing.Contracts`, MassTransit + RabbitMQ, EF outbox migration'ı, yerel RabbitMQ kurulumu README'de; AC-17.1.
-- [ ] **V3-2 Notification servisi:** Worker projesi, consumer, inbox, retry, `dotnet run` ile yerel çalıştırma; API'den e-posta kodunun kaldırılması; AC-17.2–AC-17.5; F-12 testleri Notification servisi üzerinden çalışacak şekilde taşınır.
+- [x] **V3-2 Notification servisi:** Worker projesi, consumer, inbox, retry, `dotnet run` ile yerel çalıştırma; API'den e-posta kodunun kaldırılması; AC-17.2–AC-17.5; F-12 testleri Notification servisi üzerinden çalışacak şekilde taşınır.
 - [ ] **V3-3 Observability:** OpenTelemetry + Aspire Dashboard; AC-18.2, AC-18.3.
 - [ ] **V3-4 CI:** `.github/workflows/ci.yml`; F-19; NFR-05 eşiği zorunlu.
 

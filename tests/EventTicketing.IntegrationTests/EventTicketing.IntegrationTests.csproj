@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\EventTicketing.Api\EventTicketing.Api.csproj" />
+    <ProjectReference Include="..\..\src\EventTicketing.Notifications\EventTicketing.Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>

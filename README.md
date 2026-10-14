@@ -14,7 +14,8 @@ dosyalarındadır.
 
 > Durum: **MVP** tamam (ISKELET.md §9, M1–M9); **v2** tamam (Redis + HybridCache, Redis lock, arka plan
 > temizleyicisi, tek komutla yerel çalıştırma); **v3** tamam (EF outbox + RabbitMQ, Notification servisi,
-> OpenTelemetry → Aspire Dashboard, GitHub Actions CI). Sırada bonus görevler var.
+> OpenTelemetry → Aspire Dashboard, GitHub Actions CI); **bonus** tamam (rate limiting, API sürümleme, health
+> check'ler, k6 yük testi).
 
 ## Teknoloji
 
@@ -249,6 +250,31 @@ Sürüm URL segmentindedir (`Asp.Versioning.Http`): bugün yalnız `1.0` vardır
 - `GET /health/live`: bağımlılıklara bakmadan `200` (süreç ayakta mı).
 - `GET /health/ready`: PostgreSQL, Redis ve RabbitMQ'dan biri erişilemezse `503`, hepsi erişilebilirse `200`.
   RabbitMQ durumu MassTransit'in bus health check'inden gelir (bus broker'a bağlı mı).
+
+### Yük testi (bonus)
+
+[k6](https://k6.io) betikleri `tests/load/` altında. API'yi rate limiting ve ayrıntılı konsol logu kapalı, Release
+modda başlatın (Git Bash):
+
+```bash
+RateLimiting__Enabled=false Serilog__MinimumLevel__Default=Warning OTEL_EXPORTER_OTLP_ENDPOINT= \
+  dotnet run -c Release --project src/EventTicketing.Api
+k6 run tests/load/browse.js      # 50 VU, 60 sn: GET /events + GET /events/{id}
+k6 run tests/load/hot-seat.js    # 200 VU aynı koltuğu ister; tam 1 adet 201 beklenir
+# Kilit karşılaştırması: API'yi ayrıca Locking__Enabled=false ile başlatıp hot-seat'i tekrar çalıştırın
+```
+
+Sonuçlar (i9-13900H, 16 GB, tek koşu; ayrıntı ve ortam: [`docs/load-test-results.md`](docs/load-test-results.md)):
+
+| Senaryo | p50 | p95 | p99 | Verim / sonuç | NFR-02 |
+|---|---|---|---|---|---|
+| browse (50 VU, 60 sn) | 7,8 ms | 19,6 ms | 43,5 ms | 4.802 istek/sn, hata %0 | p95 < 200 ms ✓, hata < %1 ✓ |
+| hot-seat, kilit açık | 200 ms | 261 ms | 269 ms | 1 × `201`, 199 × `409` | p95 < 400 ms ✓ |
+| hot-seat, kilit kapalı | 771 ms | 880 ms | 889 ms | 1 × `201`, 199 × `409` | p95 < 400 ms ✗ |
+
+Kilit kapalıyken de tam bir satış olur: doğruluğu veritabanı sağlar. Kilit, kaybeden 199 isteği veritabanına
+gitmeden Redis'te reddederek gecikmeyi dörtte birine indirir. Kilit kapalıyken NFR-02 rezervasyon hedefi tutmaz;
+varsayılan yapılandırma (kilit açık) tutar.
 
 ## Endpoint özeti
 

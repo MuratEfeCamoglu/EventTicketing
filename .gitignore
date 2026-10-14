@@ -55,3 +55,8 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Web ön yüzü ve yerel araç çıktıları
+node_modules/
+web/dist/
+.superpowers/

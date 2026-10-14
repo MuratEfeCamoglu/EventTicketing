@@ -31,7 +31,7 @@ Gerçek backend'lerin zor problemlerini — eşzamanlı koltuk alımı, ödeme a
 | Sistem rolü **Organizer** (Organizatör) | Kendi etkinliğini oluşturur, fiyatlandırır, yayımlar, iptal eder |
 | Sistem rolü **Admin** | Mekân/salon/koltuk tanımlar, rol atar, tüm kaynaklara erişir |
 
-Arayüz yalnızca HTTP JSON API'dir. Deneme için OpenAPI belgesi (`/openapi/v1.json`) ve Scalar UI (`/scalar`) sunulur. Frontend yoktur.
+Arayüz HTTP JSON API'dir. Deneme için OpenAPI belgesi (`/openapi/v1.json`) ve Scalar UI (`/scalar`) sunulur. Aşama 5'te (2026-10-14, proje sahibinin talebiyle) API'yi tarayıcıdan denemek için bir web ön yüzü (`web/`, F-21) eklenir; tasarımı `docs/superpowers/specs/2026-10-14-web-frontend-design.md`.
 
 ---
 
@@ -180,11 +180,18 @@ Ortak kurallar:
 - **AC-20.3** Health check: `GET /health/live` bağımlılık kontrolü yapmadan `200`; `GET /health/ready` PostgreSQL, Redis ve RabbitMQ'dan biri erişilemezse `503`, hepsi erişilebilirse `200`.
 - **AC-20.4** k6 betikleri: `tests/load/browse.js` (50 VU, 60 sn; `GET /events` ve `GET /events/{id}`) ve `tests/load/hot-seat.js` (200 VU, aynı koltuk, tek iterasyon). `hot-seat` sonunda tam 1 adet `201` vardır. k6 `setup()` aşaması 200 kullanıcıyı kayıt + giriş ile oluşturur; bu yüzden yük testleri `RateLimiting__Enabled=false` ortam değişkeniyle `dotnet run -c Release` ile başlatılan API'ye karşı koşulur (komut README'de). Sonuçlar (p50/p95/p99, RPS, hata oranı, makine özellikleri, `Locking:Enabled` açık/kapalı karşılaştırması) README'de tablo olarak yer alır; NFR-02 hedefleri tutmuyorsa sapma ve nedeni yazılır.
 
+#### F-21 Web ön yüzü (Aşama 5)
+- **AC-21.1** `GET /organizer/events/{id}` (OrganizerOrAdmin + sahiplik) her durumdaki (Taslak/Yayında/İptal) etkinliği düzenleme formunun ihtiyaç duyduğu alanlarla döndürür (`GET /events/{id}` biçimi: açıklama, mekân, salon, bölüm fiyatları); başka organizatörün etkinliği `404`, Admin hepsini görür.
+- **AC-21.2** `web/` içinde `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` hatasızdır ve CI'da ayrı bir işte çalışır.
+- **AC-21.3** Müşteri tarayıcıdan etkinlik bulur, sinema tarzı koltuk haritasından en fazla 6 koltuk tutar, geri sayımlı ödeme sayfasında `tok_success`/`tok_declined` ile öder ve QR'lı biletlerini görür; hatalar Türkçe gösterilir. (Birim testleri: koltuk düzeni, geri sayım, ödeme anahtarı, hata eşleme, token yenileme; uçtan uca: elle, ekran görüntüleri `docs/frontend-*.png`.)
+- **AC-21.4** Organizatör etkinlik oluşturur, taslağı dolu formla düzenler, yayımlar, iptal eder, siler; Admin mekân, önizlemeli salon (1–5.000 koltuk) oluşturur ve rol değiştirir.
+- **AC-21.5** Her sayfa 360 px genişlikte yatay taşmadan kullanılabilir.
+
 ### 3.3 Kapsam dışı
 
 | Madde | Neden |
 |---|---|
-| Frontend / mobil uygulama | Proje backend becerisini gösterir; Scalar UI yeterli |
+| Mobil (native) uygulama | Web ön yüzü (F-21) telefonda da çalışır; ayrı uygulama gerekmez |
 | Gerçek ödeme sağlayıcısı, kart verisi işleme | Güvenlik/uyumluluk yükü; mock yeterli (K-08) |
 | Satış sonrası iptal ve iade (müşteri tarafı) | Ödeme durum makinesini ikiye katlar |
 | Bilet devri, giriş kontrolü (QR okutma/doğrulama endpoint'i) | MVP akışına katkısı yok |
@@ -456,6 +463,7 @@ Okuma kuralı: `status = Pending ∧ expires_at ≤ now` olan rezervasyon API'de
 | GET | `/events` | Anonim | F-06 |
 | GET | `/events/{id}` | Anonim | F-06 |
 | GET | `/organizer/events` | OrganizerOrAdmin | F-06 |
+| GET | `/organizer/events/{id}` | OrganizerOrAdmin + sahiplik | F-21 |
 | GET | `/events/{id}/seats` | Anonim | F-07 |
 | POST | `/events/{id}/reservations` | Customer | F-08 |
 | GET | `/reservations/{id}` | CustomerOrAdmin + sahiplik | F-13 |
@@ -550,6 +558,7 @@ Notlar:
 ├─ docs/
 │  ├─ decisions.md              # agent'ın karar günlüğü (AGENT.md §8)
 │  └─ load-test-results.md      # bonus
+├─ web/                       # Aşama 5: React + TypeScript + Vite ön yüzü (F-21)
 ├─ src/
 │  ├─ EventTicketing.Api/
 │  │  ├─ Program.cs
@@ -623,6 +632,7 @@ Sürümler M1'de (v3 paketleri V3-1'de) `Directory.Packages.props` içinde .NET 
 | Bonus | `Asp.Versioning.Http`, `AspNetCore.HealthChecks.NpgSql`, `AspNetCore.HealthChecks.Redis`, `AspNetCore.HealthChecks.Rabbitmq` | Bonus |
 | Test | `xunit.v3`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`, `Microsoft.AspNetCore.Mvc.Testing`, `Respawn`, `Shouldly`, `NSubstitute`, `Microsoft.Extensions.TimeProvider.Testing`, `coverlet.collector` | MVP |
 | CI araçları | `dotnet-reportgenerator-globaltool` (coverage birleştirme ve eşik) | v3 |
+| Ön yüz (npm) | `react`, `react-dom`, `react-router`, `@tanstack/react-query`, `lucide-react`, `tailwindcss`, `@tailwindcss/vite`, `vite`, `@vitejs/plugin-react`, `typescript`; test/lint: `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/dom`, `@testing-library/user-event`, `@testing-library/jest-dom`, `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `globals` (sürümler `web/package.json`'da tam sabit) | Aşama 5 |
 
 ---
 
@@ -664,6 +674,18 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 - [x] **B-2 API versioning:** AC-20.2.
 - [x] **B-3 Health check'ler:** AC-20.3.
 - [x] **B-4 Yük testi:** AC-20.4; `docs/load-test-results.md` + README tablosu.
+
+### Aşama 5 — Ön yüz (2026-10-14, proje sahibinin talebi)
+Plan: `docs/superpowers/plans/2026-10-14-web-frontend.md`.
+- [x] **W-1 Taslak okuma uç noktası:** `GET /organizer/events/{id}`; AC-21.1.
+- [ ] **W-2 İskelet ve görsel sistem:** `web/`, uygulama kabuğu, UI bileşenleri, CI işi; AC-21.2.
+- [ ] **W-3 API istemcisi ve oturum:** token yenileme, Türkçe hata eşleme, giriş/kayıt.
+- [ ] **W-4 Etkinlik listesi ve sayfası.**
+- [ ] **W-5 Koltuk haritası ve koltuk tutma.**
+- [ ] **W-6 Ödeme, biletler, rezervasyonlar;** AC-21.3.
+- [ ] **W-7 Organizatör ekranları.**
+- [ ] **W-8 Admin ekranları;** AC-21.4.
+- [ ] **W-9 Uçtan uca doğrulama ve ekran görüntüleri;** AC-21.5.
 
 ---
 

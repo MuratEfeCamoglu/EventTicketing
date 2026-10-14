@@ -290,6 +290,7 @@ Tüm yollar `/api/v1` önekiyle sunulur. Tam sözleşme `/openapi/v1.json` ve Sc
 | POST, PUT, DELETE | `/events`, `/events/{id}` | Organizer veya Admin (+ sahiplik) |
 | POST | `/events/{id}/publish`, `/events/{id}/cancel` | Organizer veya Admin (+ sahiplik) |
 | GET | `/organizer/events` | Organizer veya Admin |
+| GET | `/organizer/events/{id}` | Organizer (sahibi) veya Admin; her durumdaki etkinlik, düzenleme için |
 | GET | `/events`, `/events/{id}`, `/events/{id}/seats` | Anonim |
 | POST | `/events/{id}/reservations` | Customer |
 | GET | `/reservations/{id}` | Customer (sahibi) veya Admin |

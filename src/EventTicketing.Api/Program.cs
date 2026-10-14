@@ -3,6 +3,7 @@ using EventTicketing.Api.Common;
 using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Caching;
+using EventTicketing.Api.Infrastructure.Health;
 using EventTicketing.Api.Infrastructure.Locking;
 using EventTicketing.Api.Infrastructure.Messaging;
 using EventTicketing.Api.Infrastructure.Observability;
@@ -23,6 +24,7 @@ builder.AddAuth();
 builder.AddPayments();
 builder.AddEventTicketingRateLimiting();
 builder.AddMessaging();
+builder.AddHealthChecks();
 
 builder.Services.AddOptions<ReservationOptions>()
     .BindConfiguration(ReservationOptions.Section)
@@ -59,6 +61,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapFeatureEndpoints();
+app.MapHealthEndpoints();
 
 await app.RunAsync();
 

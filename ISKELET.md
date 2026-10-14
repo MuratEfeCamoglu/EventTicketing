@@ -662,7 +662,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 ### Aşama 4 — Bonus (1 hafta)
 - [x] **B-1 Rate limiting:** AC-20.1.
 - [x] **B-2 API versioning:** AC-20.2.
-- [ ] **B-3 Health check'ler:** AC-20.3.
+- [x] **B-3 Health check'ler:** AC-20.3.
 - [ ] **B-4 Yük testi:** AC-20.4; `docs/load-test-results.md` + README tablosu.
 
 ---

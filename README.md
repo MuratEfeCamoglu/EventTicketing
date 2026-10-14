@@ -244,6 +244,12 @@ Sürüm URL segmentindedir (`Asp.Versioning.Http`): bugün yalnız `1.0` vardır
 `validation.failed` ProblemDetails alır. Asp.Versioning URL segmentinde bu durumda her zaman `404` döndürdüğü için
 400'ü küçük bir middleware üretir. OpenAPI belgesinde yollar `/api/v1/...` olarak görünür.
 
+### Health check (bonus)
+
+- `GET /health/live`: bağımlılıklara bakmadan `200` (süreç ayakta mı).
+- `GET /health/ready`: PostgreSQL, Redis ve RabbitMQ'dan biri erişilemezse `503`, hepsi erişilebilirse `200`.
+  RabbitMQ durumu MassTransit'in bus health check'inden gelir (bus broker'a bağlı mı).
+
 ## Endpoint özeti
 
 Tüm yollar `/api/v1` önekiyle sunulur. Tam sözleşme `/openapi/v1.json` ve Scalar UI'dadır.

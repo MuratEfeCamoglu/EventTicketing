@@ -1,0 +1,75 @@
+# Dependent services of EventTicketing for local development and tests (ISKELET K-10).
+# The API itself runs outside Docker: `dotnet run --project src/EventTicketing.Api`.
+# Every port is bound to loopback only (127.0.0.1 and ::1, so `localhost` never waits on a refused IPv6 attempt); passwords are `dev-only-` values for this machine.
+name: eventticketing
+
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev-only-postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+      - "[::1]:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4.11
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+      - "[::1]:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "[::1]:1025:1025"
+      - "127.0.0.1:8025:8025"
+      - "[::1]:8025:8025"
+
+  # v3 (V3-1): message broker for the outbox and the Notification service.
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    environment:
+      RABBITMQ_DEFAULT_USER: eventticketing
+      RABBITMQ_DEFAULT_PASS: dev-only-rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "[::1]:5672:5672"
+      - "127.0.0.1:15672:15672"
+      - "[::1]:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # v3 (V3-3): traces, metrics and logs over OTLP; UI on http://localhost:18888.
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.1
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "127.0.0.1:18888:18888"
+      - "[::1]:18888:18888"
+      - "127.0.0.1:4317:18889"
+      - "[::1]:4317:18889"
+
+volumes:
+  postgres-data:
+  rabbitmq-data:

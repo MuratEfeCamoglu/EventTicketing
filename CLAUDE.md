@@ -7,7 +7,7 @@ QR'lı bilet ve e-posta alır. Odak; eşzamanlı koltuk alımı, ödeme akışı
 - Agent yetkileri, görev döngüsü, "bitti" tanımı → **AGENT.md**
 - Bu dosya: yığın, komutlar, kod ve çalışma kuralları.
 
-**Durum:** M1 (iskelet) tamam; sıradaki görev ISKELET.md §9'daki ilk işaretsiz kutu. Aşama etiketi olan komutlar
+**Durum:** MVP ve v2 tamam; sıradaki görev ISKELET.md §9'daki ilk işaretsiz kutu. Aşama etiketi olan komutlar
 o aşamadan itibaren çalışır.
 
 ## Teknoloji yığını
@@ -16,8 +16,8 @@ o aşamadan itibaren çalışır.
 - FluentValidation, ProblemDetails + `IExceptionHandler`, Serilog
 - v2: Redis 7 (`HybridCache`, distributed lock), `BackgroundService` sweeper, tek komutla yerel çalıştırma
 - v3: RabbitMQ 4 + MassTransit 8.x (EF outbox), Notification Worker, OpenTelemetry → Aspire Dashboard, GitHub Actions
-- Docker kullanılmaz: tüm servisler yerel kurulumdur (ISKELET K-10)
-- Test: xUnit v3, yerel PostgreSQL (geçici test DB'si), Respawn, Shouldly, NSubstitute, `FakeTimeProvider`
+- Bağımlı servisler `compose.yaml` ile Docker'da; API `dotnet run` ile çalışır, `Dockerfile` yok (ISKELET K-10)
+- Test: xUnit v3, compose PostgreSQL'inde geçici test DB'si, Respawn, Shouldly, NSubstitute, `FakeTimeProvider`
 - Paket listesi ve yasaklı paketler: ISKELET §8.1, K-03
 
 ## Önemli yollar
@@ -30,14 +30,14 @@ o aşamadan itibaren çalışır.
 ## Kurulum (bir kez)
 ```bash
 dotnet --version                     # 10.0.x olmalı
-psql --version                       # PostgreSQL 17 yerel kurulu ve localhost:5432'de çalışıyor olmalı
+docker compose version               # Docker Desktop (WSL 2) çalışıyor olmalı
 dotnet tool restore                  # dotnet-ef
 dotnet user-secrets set "Jwt:SigningKey" "$(openssl rand -base64 48)" --project src/EventTicketing.Api
 ```
 
 ## Geliştirme
 ```bash
-# Önkoşul: yerel PostgreSQL 17 (MVP), Mailpit (M8), v2: Redis 7, v3: RabbitMQ 4 + Aspire Dashboard
+docker compose up -d                           # PostgreSQL, Redis, Mailpit, RabbitMQ, Aspire Dashboard
 dotnet run --project src/EventTicketing.Api    # http://localhost:8080 · Scalar: /scalar · OpenAPI: /openapi/v1.json
 dotnet watch --project src/EventTicketing.Api  # hot reload
 ```
@@ -120,5 +120,6 @@ k6 run tests/load/browse.js && k6 run tests/load/hot-seat.js
   reddedilir (ISKELET §5.11).
 - Redis lock doğruluk kaynağı değildir; Redis yokken akış DB korumasıyla devam eder (ISKELET §5.4).
 - MassTransit 9+ ticari lisanslıdır; 8.x'te kalınır.
-- Integration testleri yerel PostgreSQL yoksa çalışmaz; bağlantı `EVENTTICKETING_TEST_POSTGRES` ortam değişkeninden
-  okunur (yoksa `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`). Hata alırsan önce `psql`.
+- Integration testleri compose servisleri (PostgreSQL, Redis, Mailpit) çalışmıyorsa çalışmaz; PostgreSQL bağlantısı
+  `EVENTTICKETING_TEST_POSTGRES` ortam değişkeninden okunur (yoksa
+  `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`). Hata alırsan önce `docker compose ps`.

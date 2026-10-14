@@ -16,8 +16,8 @@ dosyalarındadır.
 ## Teknoloji
 
 .NET 10 · ASP.NET Core Minimal API · EF Core 10 + Npgsql · PostgreSQL 17 · FluentValidation · Serilog ·
-Redis 7 + HybridCache · MailKit + Mailpit · QRCoder · xUnit v3 · Shouldly · Respawn. Docker kullanılmaz; tüm
-servisler yerel kurulumdur.
+Redis 7 + HybridCache · MailKit + Mailpit · QRCoder · xUnit v3 · Shouldly · Respawn. Bağımlı servisler Docker
+Compose ile çalışır; API `dotnet run` ile.
 
 ## Çalıştırma
 
@@ -26,33 +26,26 @@ servisler yerel kurulumdur.
 | Araç | Not |
 |---|---|
 | .NET SDK 10.0.x | `dotnet --version` |
-| PostgreSQL 17 | `localhost:5432`, kullanıcı `postgres`, parola `dev-only-postgres` (yalnız yerel geliştirme değeri) |
-| Redis 7 | `localhost:6379`, parolasız, yalnız loopback (v2) |
-| Mailpit | SMTP `localhost:1025`, arayüz `http://localhost:8025` |
+| Docker Desktop (WSL 2) | Bağımlı servisler için; `docker compose version` |
 
-Yönetici yetkisi gerektirmeyen taşınabilir kurulum (PowerShell):
+Bağımlı servisler kökteki [`compose.yaml`](compose.yaml) ile başlatılır (imaj sürümleri orada sabittir, portlar
+yalnız `127.0.0.1`'e açılır):
 
-```powershell
-# PostgreSQL 17: EDB'nin Windows "binaries" zip'ini %LOCALAPPDATA%\EventTicketing\pgsql altına açın, sonra bir kez:
-$pg = "$env:LOCALAPPDATA\EventTicketing"
-& "$pg\pgsql\bin\initdb.exe" -D "$pg\pgdata" -U postgres --pwprompt -E UTF8   # parola: dev-only-postgres
-& "$pg\pgsql\bin\pg_ctl.exe" -D "$pg\pgdata" -l "$pg\pg.log" start
-
-# Mailpit: https://github.com/axllent/mailpit/releases adresindeki mailpit-windows-amd64.zip'i
-# %LOCALAPPDATA%\EventTicketing\mailpit altına açın, sonra:
-Start-Process "$pg\mailpit\mailpit.exe" -ArgumentList '--smtp','localhost:1025','--listen','localhost:8025' -WindowStyle Hidden
-
-# Redis 7: Redis'in resmi Windows sürümü yok. https://github.com/redis-windows/redis-windows/releases adresindeki
-# Redis-7.4.x-Windows-x64-msys2.zip'i %LOCALAPPDATA%\EventTicketing\redis altına açın, sonra:
-Start-Process "$pg\redis\redis-server.exe" -WorkingDirectory "$pg\redis" -WindowStyle Hidden `
-  -ArgumentList '--port','6379','--bind','"127.0.0.1 ::1"','--save','""','--appendonly','no'
+```bash
+docker compose up -d     # ilk seferde imajlar indirilir
+docker compose ps        # hepsi "running" / "healthy" olmalı
 ```
 
-Redis yalnız önbellek (ve v2'de kilit) içindir, kalıcılık kapalıdır. Kapalıysa API çalışmaya devam eder; okumalar
-veritabanından gelir.
+| Servis | Adres | Not |
+|---|---|---|
+| PostgreSQL 17 | `localhost:5432` | kullanıcı `postgres`, parola `dev-only-postgres`; veri `postgres-data` volume'ünde |
+| Redis 7 | `localhost:6379` | yalnız önbellek ve kilit; kalıcılık kapalı |
+| Mailpit | SMTP `localhost:1025`, arayüz `http://localhost:8025` | gönderilen bilet e-postaları |
+| RabbitMQ 4 (v3) | `localhost:5672`, yönetim `http://localhost:15672` | kullanıcı `eventticketing`, parola `dev-only-rabbitmq` |
+| Aspire Dashboard (v3) | `http://localhost:18888`, OTLP `localhost:4317` | trace, metrik ve loglar |
 
-Başka bir kurulum yöntemi de kullanılabilir (ör. `winget install PostgreSQL.PostgreSQL.17`); bağlantı bilgisi aynı
-kaldığı sürece uygulama ve testler değişmeden çalışır.
+`dev-only-` önekli parolalar yalnız bu makinedeki geliştirme içindir. Durdurmak için `docker compose stop`; verileri de
+silmek için `docker compose down -v`. Redis kapalıysa API çalışmaya devam eder, okumalar veritabanından gelir.
 
 ### API
 
@@ -61,9 +54,9 @@ dotnet tool restore
 dotnet run --project src/EventTicketing.Api
 ```
 
-Tek komut yeterlidir: yerel PostgreSQL ve Redis çalışıyorsa migration'lar ve örnek veri başlangıçta uygulanır. Ayrı bir
-terminalde doğrulama (Git Bash): `./scripts/smoke.sh`. Betik `GET /api/v1/events` için 5 sn arayla 24 kez dener ve
-120 sn içinde en az bir etkinlikle `200` bekler (AC-16.1). Bu makinedeki ölçüm: temiz derleme dahil 80 sn.
+Servisler `docker compose up -d` ile ayaktayken tek komut yeterlidir: migration'lar ve örnek veri başlangıçta
+uygulanır. Ayrı bir terminalde doğrulama (Git Bash): `./scripts/smoke.sh`. Betik `GET /api/v1/events` için 5 sn arayla
+24 kez dener ve 120 sn içinde en az bir etkinlikle `200` bekler (AC-16.1).
 
 - API: `http://localhost:8080/api/v1` · Scalar UI: `http://localhost:8080/scalar` · OpenAPI: `/openapi/v1.json`
 - Development ortamında migration'lar ve örnek veri başlangıçta uygulanır: 100 koltuklu bir salon, 30 gün sonraya
@@ -212,14 +205,14 @@ Başkasına ait rezervasyon veya bilete erişim `404` döner; böylece kaydın v
 
 ```bash
 dotnet test tests/EventTicketing.UnitTests          # dış bağımlılık gerektirmez
-dotnet test tests/EventTicketing.IntegrationTests   # yerel PostgreSQL + Redis + Mailpit gerektirir
+dotnet test tests/EventTicketing.IntegrationTests   # docker compose up -d (PostgreSQL + Redis + Mailpit) gerektirir
 dotnet test --filter "AC=AC-08.3"                   # tek bir kabul kriterinin testleri
 dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResults/ altına
 ```
 
 - Her kabul kriteri en az bir testle doğrulanır ve test `[Trait("AC", "AC-xx.y")]` taşır.
-- Integration testleri gerçek PostgreSQL kullanır (EF InMemory/SQLite yok). Çalıştırma başında yerel sunucuda geçici
-  bir `eventticketing_test_<guid>` veritabanı oluşturulur, sonunda silinir. Her test Respawn ile temiz DB'den başlar.
+- Integration testleri gerçek PostgreSQL kullanır (EF InMemory/SQLite yok). Çalıştırma başında compose'daki sunucuda
+  geçici bir `eventticketing_test_<guid>` veritabanı oluşturulur, sonunda silinir. Her test Respawn ile temiz DB'den başlar.
 - Zaman `FakeTimeProvider` ile ilerletilir (`Task.Delay` ile beklenmez). JWT doğrulaması da aynı `TimeProvider`'ı
   kullanır.
 - Bağlantılar ortam değişkenleriyle değiştirilebilir: `EVENTTICKETING_TEST_POSTGRES` (varsayılan

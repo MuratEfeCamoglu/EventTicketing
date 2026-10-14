@@ -1,6 +1,6 @@
 # ISKELET.md — Etkinlik ve Bilet Rezervasyon Sistemi
 
-> Sürüm 1.1 · 2026-10-11 · Durum: kod yazımı öncesi tasarım · 1.1: Docker kaldırıldı (K-10)
+> Sürüm 1.2 · 2026-10-13 · 1.1: Docker kaldırıldı (K-10) · 1.2: bağımlı servisler Docker Compose ile çalışır (K-10, proje sahibinin kararı)
 >
 > Bu doküman projenin **tek doğruluk kaynağıdır** (ürün, kapsam, mimari, veri modeli, plan).
 > Komutlar ve kod kuralları → `CLAUDE.md`. Agent'ın yetkileri ve çalışma döngüsü → `AGENT.md`.
@@ -17,7 +17,7 @@ Gerçek backend'lerin zor problemlerini — eşzamanlı koltuk alımı, ödeme a
 
 **Proje başarı ölçütleri (hepsi sağlanınca proje tamamdır):**
 1. Aynı koltuk için 50 paralel istekte tam 1 başarı (AC-08.3); k6 ile 200 sanal kullanıcıda tam 1 başarı (AC-20.4).
-2. Temiz klondan, yerel servisler kuruluyken tek komutla (`dotnet run --project src/EventTicketing.Api`) sistem 120 sn içinde yanıt verir (AC-16.1).
+2. Temiz klondan, servisler `docker compose up -d` ile başlatıldıktan sonra tek komutla (`dotnet run --project src/EventTicketing.Api`) sistem 120 sn içinde yanıt verir (AC-16.1).
 3. GitHub Actions pipeline'ı `main` dalında yeşil (AC-19.1).
 4. README; mimari seçim gerekçesini, concurrency çözümünü ve k6 sonuç tablosunu içerir (M9, B-4).
 
@@ -154,8 +154,8 @@ Ortak kurallar:
 - **AC-15.4** Redis erişilemezken `GET /events` ve `GET /events/{id}` `200` dönmeye devam eder.
 
 #### F-16 Tek komutla yerel çalıştırma (v2)
-- **AC-16.1** Temiz klon + yerel PostgreSQL ve Redis çalışırken `dotnet run --project src/EventTicketing.Api` → 120 sn içinde `GET http://localhost:8080/api/v1/events` `200` döner; migration'lar ve geliştirme seed verisi otomatik uygulanır (yanıtta en az 1 etkinlik; seed etkinliğinin `startsAt` değeri uygulamanın başladığı andan 30 gün sonrasıdır, böylece AC-06.1 filtresine takılmaz). Doğrulama: `scripts/smoke.sh` (v2'de yazılır, `curl` ile 5 sn aralıkla 24 deneme).
-- **AC-16.2** Uygulama durdurulup yeniden başlatıldıktan sonra önceden oluşturulan rezervasyon hâlâ okunabilir (veri yerel PostgreSQL'de kalıcı).
+- **AC-16.1** Temiz klon + `docker compose up -d` ile PostgreSQL ve Redis çalışırken `dotnet run --project src/EventTicketing.Api` → 120 sn içinde `GET http://localhost:8080/api/v1/events` `200` döner; migration'lar ve geliştirme seed verisi otomatik uygulanır (yanıtta en az 1 etkinlik; seed etkinliğinin `startsAt` değeri uygulamanın başladığı andan 30 gün sonrasıdır, böylece AC-06.1 filtresine takılmaz). Doğrulama: `scripts/smoke.sh` (v2'de yazılır, `curl` ile 5 sn aralıkla 24 deneme).
+- **AC-16.2** Uygulama durdurulup yeniden başlatıldıktan sonra önceden oluşturulan rezervasyon hâlâ okunabilir (veri PostgreSQL'in Docker volume'ünde kalıcı).
 
 #### F-17 Olay tabanlı bildirim ve outbox (v3)
 - **AC-17.1** Başarılı ödemede `TicketPurchased` mesajı ödeme ile aynı DB transaction'ında MassTransit outbox tablosuna yazılır: transaction commit edilirse kayıt vardır, rollback edilirse yoktur.
@@ -171,7 +171,7 @@ Ortak kurallar:
 - **AC-18.4** (MVP) Loglarda parola, access/refresh token ve `paymentToken` bulunmaz; e-posta maskelenir (`a***@example.com`). (Test: in-memory Serilog sink ile kayıt + giriş + ödeme akışı sonrası log metninde bu değerler aranır.)
 
 #### F-19 CI pipeline (v3)
-- **AC-19.1** `.github/workflows/ci.yml`, `main`'e push ve PR'da şu adımları çalıştırır; biri başarısızsa iş kırmızıdır: `dotnet format --verify-no-changes`, Release build (0 uyarı), unit testler, integration testler, coverage eşiği (§4 NFR-05), API ve Notification servisinin `dotnet publish -c Release` çıktısı. Runner'daki PostgreSQL (ve gerekirse Redis/RabbitMQ) container kullanılmadan, runner'a kurulu paketlerle başlatılır.
+- **AC-19.1** `.github/workflows/ci.yml`, `main`'e push ve PR'da şu adımları çalıştırır; biri başarısızsa iş kırmızıdır: `dotnet format --verify-no-changes`, Release build (0 uyarı), unit testler, integration testler, coverage eşiği (§4 NFR-05), API ve Notification servisinin `dotnet publish -c Release` çıktısı. PostgreSQL (ve gerekirse Redis, RabbitMQ, Mailpit) GitHub Actions service container'ları olarak, `compose.yaml` ile aynı imaj sürümleriyle başlatılır.
 - **AC-19.2** Pipeline toplam süresi `ubuntu-latest` üzerinde ≤ 15 dk.
 
 #### F-20 Bonus: rate limiting, API versioning, health check, yük testi
@@ -194,7 +194,7 @@ Ortak kurallar:
 | SMS/push bildirimi | Yalnız e-posta |
 | Satış raporları, organizatör paneli istatistikleri | Raporlama ayrı bir problem alanı |
 | Çok kiracılılık, çoklu dil (API mesajları İngilizce) | Gereksiz karmaşıklık |
-| Docker / container, Kubernetes, bulut dağıtımı, üretim ortamı | Yalnız yerel çalıştırma (K-10) |
+| API için container imajı (`Dockerfile`), Kubernetes, bulut dağıtımı, üretim ortamı | Yalnız yerel çalıştırma; Docker yalnız bağımlı servisler içindir (K-10) |
 | Salon koltuk düzenini sonradan değiştirme | Yayımlanmış etkinlik tutarlılığını bozar (AC-04.4) |
 
 ---
@@ -542,6 +542,7 @@ Notlar:
 ├─ global.json                  # SDK 10.0.x, rollForward: latestFeature
 ├─ .editorconfig
 ├─ .gitignore                   # `dotnet new gitignore` + `.env`
+├─ compose.yaml                 # bağımlı servisler: PostgreSQL, Redis, Mailpit, RabbitMQ, Aspire Dashboard (K-10)
 ├─ LICENSE                      # MIT (V-22)
 ├─ .config/dotnet-tools.json    # dotnet-ef
 ├─ scripts/smoke.sh             # v2
@@ -593,7 +594,7 @@ Notlar:
 | Kimlik | Kısıt |
 |---|---|
 | K-01 | .NET 10 SDK (10.0.x), `net10.0`, C# 14 |
-| K-02 | PostgreSQL 17, Redis 7, RabbitMQ 4 (management), Mailpit, Aspire Dashboard; hepsi yerel (Docker'sız) kurulur, kurulum adımları ve sürümler README'de |
+| K-02 | PostgreSQL 17, Redis 7, RabbitMQ 4 (management), Mailpit, Aspire Dashboard; hepsi `compose.yaml` ile Docker'da çalışır, imaj sürümleri orada sabitlenir, kurulum adımları README'de |
 | K-03 | Yalnız §8.1'deki paketler; ticari lisanslı sürümler yasak (MediatR, AutoMapper, MassTransit ≥ 9, FluentAssertions ≥ 8) |
 | K-04 | Tek repo, tek solution (`EventTicketing.slnx`), Central Package Management |
 | K-05 | Zaman: UTC, `DateTimeOffset`, `TimeProvider` (NFR-08) |
@@ -601,7 +602,7 @@ Notlar:
 | K-07 | §5.3 bağımlılık kuralları |
 | K-08 | Gerçek ödeme sağlayıcısı ve gerçek SMTP sunucusu kullanılmaz; e-postalar yalnız Mailpit'e gider |
 | K-09 | Tüm sistem yerel makinede çalışır; bulut hizmeti gerekmez |
-| K-10 | Docker ve container kullanılmaz: `Dockerfile`, `compose.yaml`, Testcontainers yoktur; integration testleri yerel servislere bağlanır |
+| K-10 | Docker yalnız bağımlı servisler için, kökteki `compose.yaml` ile kullanılır; API ve Notification servisi `dotnet run` ile çalışır, `Dockerfile` yoktur. Testcontainers kullanılmaz: integration testleri compose servislerine (aynı portlar) bağlanır ve kendi geçici veritabanını oluşturur |
 
 ### 8.1 Onaylı paketler
 
@@ -723,4 +724,4 @@ Agent'ı bloklamaz; varsayılan değerle ilerlenir, proje sahibi isterse değiş
 | A-01 | Gerçek repo adı ve GitHub sahibi | `event-ticketing`; CI badge'i V3-4'te gerçek URL ile eklenir |
 | A-02 | k6 sonuçlarının alınacağı makinenin gerçek özellikleri | V-16; ölçüm anındaki gerçek değerler README'ye yazılır |
 | A-03 | Organizatör olma başvuru akışı istenecek mi | Hayır; Admin rol atar (V-07) |
-| A-04 | Windows'ta Redis 7, RabbitMQ 4 ve Aspire Dashboard'un Docker'sız kurulum yöntemi | İlgili görevde (V2-1, V3-1, V3-3) belirlenir, `docs/decisions.md`'ye ve README'ye yazılır |
+| A-04 | Windows'ta Redis 7, RabbitMQ 4 ve Aspire Dashboard'un kurulum yöntemi | Çözüldü (2026-10-13): hepsi `compose.yaml` ile Docker'da (K-10) |

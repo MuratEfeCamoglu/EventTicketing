@@ -54,7 +54,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1fr_1fr]">
+    <div className="mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
       <Card className="p-6 sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight">Giriş yap</h1>
         <p className="mt-1 text-sm text-muted">Biletlerinize ve rezervasyonlarınıza ulaşın.</p>
@@ -76,7 +76,7 @@ export function LoginPage() {
 
       <Card className="p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Demo hesapları</h2>
-        <p className="mt-1 text-sm text-muted">Tek tıkla hazır kullanıcılardan biriyle girin (parola: {DEMO_PASSWORD}).</p>
+        <p className="mt-1 break-words text-sm text-muted">Tek tıkla hazır kullanıcılardan biriyle girin (parola: {DEMO_PASSWORD}).</p>
         <div className="mt-5 flex flex-col gap-3">
           {demoAccounts.map(({ email: address, label, description, icon: Icon }) => (
             <button

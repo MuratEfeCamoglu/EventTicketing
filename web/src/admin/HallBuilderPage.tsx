@@ -75,7 +75,7 @@ export function HallBuilderPage() {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-[1fr_88px_88px] gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_88px_88px] gap-2">
                   <Field label="Ad">{(p) => <TextInput {...p} maxLength={50} value={section.name} onChange={(e) => update(index, { name: e.target.value })} />}</Field>
                   <Field label="Sıralar">{(p) => <TextInput {...p} placeholder="A-L" value={section.rows} onChange={(e) => update(index, { rows: e.target.value })} />}</Field>
                   <Field label="Koltuk/sıra">

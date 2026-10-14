@@ -678,14 +678,14 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 ### Aşama 5 — Ön yüz (2026-10-14, proje sahibinin talebi)
 Plan: `docs/superpowers/plans/2026-10-14-web-frontend.md`.
 - [x] **W-1 Taslak okuma uç noktası:** `GET /organizer/events/{id}`; AC-21.1.
-- [ ] **W-2 İskelet ve görsel sistem:** `web/`, uygulama kabuğu, UI bileşenleri, CI işi; AC-21.2.
-- [ ] **W-3 API istemcisi ve oturum:** token yenileme, Türkçe hata eşleme, giriş/kayıt.
-- [ ] **W-4 Etkinlik listesi ve sayfası.**
-- [ ] **W-5 Koltuk haritası ve koltuk tutma.**
-- [ ] **W-6 Ödeme, biletler, rezervasyonlar;** AC-21.3.
-- [ ] **W-7 Organizatör ekranları.**
-- [ ] **W-8 Admin ekranları;** AC-21.4.
-- [ ] **W-9 Uçtan uca doğrulama ve ekran görüntüleri;** AC-21.5.
+- [x] **W-2 İskelet ve görsel sistem:** `web/`, uygulama kabuğu, UI bileşenleri, CI işi; AC-21.2.
+- [x] **W-3 API istemcisi ve oturum:** token yenileme, Türkçe hata eşleme, giriş/kayıt.
+- [x] **W-4 Etkinlik listesi ve sayfası.**
+- [x] **W-5 Koltuk haritası ve koltuk tutma.**
+- [x] **W-6 Ödeme, biletler, rezervasyonlar;** AC-21.3.
+- [x] **W-7 Organizatör ekranları.**
+- [x] **W-8 Admin ekranları;** AC-21.4.
+- [x] **W-9 Uçtan uca doğrulama ve ekran görüntüleri;** AC-21.5.
 
 ---
 

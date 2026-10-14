@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { messageFor } from '../api/errors';
@@ -37,9 +37,14 @@ export function SeatSelection({ eventId, hall }: { eventId: string; hall: HallDe
   const chosen = selection.selected.filter((s) => available.has(s.eventSeatId));
   const chosenIds = useMemo(() => new Set(chosen.map((s) => s.eventSeatId)), [chosen]);
 
-  function toggle(seat: SeatDto) {
-    if (selection.toggle(seat) === 'limit') toast.error(`Bir rezervasyonda en fazla ${MAX_SEATS} koltuk seçebilirsiniz.`);
-  }
+  // Stable, so the memoised seats re-render only when their own selection changes.
+  const { toggle: toggleSeat } = selection;
+  const toggle = useCallback(
+    (seat: SeatDto) => {
+      if (toggleSeat(seat) === 'limit') toast.error(`Bir rezervasyonda en fazla ${MAX_SEATS} koltuk seçebilirsiniz.`);
+    },
+    [toggleSeat, toast],
+  );
 
   function holdSeats() {
     if (!session) {

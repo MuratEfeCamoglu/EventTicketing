@@ -97,6 +97,27 @@ npm run dev        # http://localhost:5173 — /api istekleri :8080'e yönlendir
 
 Kontroller: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` (CI'da ayrı `web` işi). Node.js 22 gerekir.
 
+Giriş ekranındaki **Demo hesapları** ile müşteri, organizatör ya da admin olarak tek tıkla girilir.
+
+- **Müşteri:** etkinlik arama ve filtreleme, sinema tarzı koltuk haritası (en fazla 6 koltuk; büyük salonlar
+  sığacak şekilde küçülür, yakınlaştırılır ve kaydırılır), 10 dakikalık geri sayımlı ödeme sayfası (başarılı ve
+  reddedilen test kartı), QR'lı biletler, rezervasyonlar.
+- **Organizatör:** etkinliklerim (duruma göre düzenle, yayımla, iptal et, sil), taslak dahil dolu açılan düzenleme
+  formu (`GET /organizer/events/{id}`).
+- **Admin:** mekânlar, önizlemeli salon oluşturucu (bölüm × sıra aralığı × sıra başına koltuk, 1–5.000 koltuk),
+  kullanıcı rolleri (kimlik, hesap menüsündeki "Kimliğimi kopyala" ile alınır).
+
+| Ana sayfa | Koltuk haritası | Telefon |
+|---|---|---|
+| ![Ana sayfa](docs/frontend-home.png) | ![Koltuk haritası](docs/frontend-seat-map.png) | ![Telefonda koltuk haritası](docs/frontend-phone-seat-map.png) |
+
+| Ödeme | 5.000 koltuklu salon | Salon oluşturucu |
+|---|---|---|
+| ![Ödeme sayfası](docs/frontend-checkout.png) | ![5.000 koltuk](docs/frontend-seat-map-5000.png) | ![Salon oluşturucu](docs/frontend-hall-builder.png) |
+
+Tarayıcıda ölçülen (Edge, bu makine): 5.000 koltuklu haritanın açılması ~1,2 sn (masaüstü) / ~1,5 sn (telefon
+öykünmesi; veri indirme dahil), koltuk seçme tepkisi ~160 ms. 360 px genişlikte hiçbir sayfa yatay taşmaz.
+
 ### Notification servisi (v3)
 
 ```bash

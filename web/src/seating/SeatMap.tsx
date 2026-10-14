@@ -14,7 +14,7 @@ type Props = {
   readOnly?: boolean;
 };
 
-const ZOOM_MIN = 0.6;
+const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 1.6;
 const ZOOM_STEP = 0.2;
 
@@ -99,6 +99,10 @@ export function SeatMap({ seats, sectionOrder, selectedIds, onToggle, readOnly }
       const natural = inner.scrollWidth / current;
       const next = natural > box.clientWidth ? Math.max(ZOOM_MIN, Math.floor((box.clientWidth / natural) * 20) / 20) : 1;
       setZoom(next);
+      // Whatever still does not fit opens at its centre, where the stage is.
+      requestAnimationFrame(() => {
+        box.scrollLeft = Math.max(0, (box.scrollWidth - box.clientWidth) / 2);
+      });
     };
     const observer = new ResizeObserver(fit);
     observer.observe(box);

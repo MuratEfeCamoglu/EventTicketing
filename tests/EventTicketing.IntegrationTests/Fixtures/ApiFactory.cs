@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using EventTicketing.Api.Features.Reservations;
 using EventTicketing.Api.Infrastructure.Persistence;
+using MassTransit.EntityFrameworkCoreIntegration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -43,6 +44,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public static string RedisConnectionString { get; } =
         $"{Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_REDIS") ?? "localhost:6379"},abortConnect=false,connectTimeout=1000,syncTimeout=1000";
 
+    /// <summary>Local RabbitMQ from <c>EVENTTICKETING_TEST_RABBITMQ</c> (default: the compose broker with its dev-only user).</summary>
+    public static string RabbitMqConnectionString { get; } =
+        Environment.GetEnvironmentVariable("EVENTTICKETING_TEST_RABBITMQ") ?? "amqp://eventticketing:dev-only-rabbitmq@localhost:5672/";
+
     /// <summary>Counts SQL commands, so a test can prove a read was served from the cache (AC-15.1).</summary>
     public DbCommandCounter DbCommands { get; } = new();
 
@@ -71,6 +76,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Postgres", Postgres.ConnectionString);
         builder.UseSetting("ConnectionStrings:Redis", RedisConnectionString);
+        builder.UseSetting("ConnectionStrings:RabbitMq", RabbitMqConnectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Seed:AdminEmail", AdminEmail);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
@@ -93,6 +99,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             }
 
             services.AddSingleton<ReservationExpiryService>();
+
+            // Messages stay in outbox_message, where tests can inspect them (AC-17.1); delivery to RabbitMQ is not under test.
+            foreach (var delivery in services.Where(d => d.ImplementationType is { IsGenericType: true } type && type.GetGenericTypeDefinition() == typeof(BusOutboxDeliveryService<>)).ToList())
+            {
+                services.Remove(delivery);
+            }
 
             // Keys of this test run never meet those of another run or of the development API in the same Redis.
             services.Configure<RedisCacheOptions>(options => options.InstanceName = $"eventticketing-test:{RunId}:");

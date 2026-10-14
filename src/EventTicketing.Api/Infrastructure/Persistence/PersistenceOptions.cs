@@ -15,6 +15,10 @@ public sealed class ConnectionStringOptions
     /// </summary>
     [Required]
     public string Redis { get; set; } = string.Empty;
+
+    /// <summary>Required from v3: an AMQP URI with the credentials, e.g. <c>amqp://user:password@localhost:5672/</c>.</summary>
+    [Required]
+    public string RabbitMq { get; set; } = string.Empty;
 }
 
 public sealed class DatabaseOptions

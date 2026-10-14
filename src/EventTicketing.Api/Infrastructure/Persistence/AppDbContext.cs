@@ -1,5 +1,7 @@
 using EventTicketing.Api.Domain;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Event = EventTicketing.Api.Domain.Event;
 
 namespace EventTicketing.Api.Infrastructure.Persistence;
 
@@ -47,6 +49,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
             }
         }
+
+        // MassTransit EF outbox tables (ISKELET §5.10); added after the loop above so they keep MassTransit's own keys and
+        // delete behaviour.
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

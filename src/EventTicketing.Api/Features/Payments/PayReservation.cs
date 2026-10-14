@@ -6,7 +6,9 @@ using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
 using EventTicketing.Api.Infrastructure.Qr;
+using EventTicketing.Contracts;
 using FluentValidation;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +18,8 @@ namespace EventTicketing.Api.Features.Payments;
 /// Mock payment and ticket issuing (ISKELET §5.7). The <c>Idempotency-Key</c> makes retries safe: a key that already has a
 /// <c>payments</c> row returns that row's recorded outcome without charging again (AC-10.3). When the charge succeeds but
 /// the confirmation loses a race (expiry, cancellation, a concurrent request), the charge is refunded and recorded as a
-/// <c>Refunded</c> payment under the same key (AC-10.6).
+/// <c>Refunded</c> payment under the same key (AC-10.6). (v3) <see cref="TicketPurchased"/> is published through the EF outbox in
+/// the confirmation transaction (AC-17.1).
 /// </summary>
 public static class PayReservation
 {
@@ -36,7 +39,14 @@ public static class PayReservation
             .WithMessage($"Payment token must be one of: {string.Join(", ", MockPaymentGateway.SupportedTokens)}.");
     }
 
-    public sealed class Handler(AppDbContext db, IPaymentGateway gateway, IEmailSender email, EventCacheInvalidator cache, TimeProvider clock, ILogger<Handler> logger)
+    public sealed class Handler(
+        AppDbContext db,
+        IPaymentGateway gateway,
+        IPublishEndpoint publisher,
+        IEmailSender email,
+        EventCacheInvalidator cache,
+        TimeProvider clock,
+        ILogger<Handler> logger)
     {
         public async Task<Result<Response>> HandleAsync(Guid reservationId, Guid userId, Guid idempotencyKey, Request request, CancellationToken cancellationToken)
         {
@@ -129,11 +139,17 @@ public static class PayReservation
 
             var payment = new Payment(reservation.Id, idempotencyKey, reservation.TotalAmount, PaymentStatus.Succeeded, charge.ProviderReference, null, now);
             db.Payments.Add(payment);
+            var issued = new List<(Ticket Ticket, Guid SeatId)>(seats.Count);
             foreach (var seat in seats)
             {
                 seat.Sell(reservation.Id);
-                db.Tickets.Add(new Ticket(reservation.Id, seat.Id, reservation.UserId, Ticket.GenerateCode(), now));
+                var ticket = new Ticket(reservation.Id, seat.Id, reservation.UserId, Ticket.GenerateCode(), now);
+                db.Tickets.Add(ticket);
+                issued.Add((ticket, seat.SeatId));
             }
+
+            // The outbox publish endpoint adds an outbox_message row to this context: it commits or rolls back with the payment.
+            await publisher.Publish(await TicketPurchasedAsync(reservation, issued, now, cancellationToken), cancellationToken);
 
             try
             {
@@ -149,6 +165,33 @@ public static class PayReservation
 
             logger.LogInformation("Reservation {ReservationId} paid with payment {PaymentId}; {TicketCount} tickets issued", reservation.Id, payment.Id, seats.Count);
             return new Response(payment.Id, payment.Status, await TicketsOfAsync(reservation.Id, cancellationToken));
+        }
+
+        private async Task<TicketPurchased> TicketPurchasedAsync(
+            Reservation reservation, IReadOnlyList<(Ticket Ticket, Guid SeatId)> issued, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            var details = await (
+                    from e in db.Events.AsNoTracking()
+                    join h in db.Halls on e.HallId equals h.Id
+                    from u in db.Users
+                    where e.Id == reservation.EventId && u.Id == reservation.UserId
+                    select new { e.Title, e.StartsAt, HallName = h.Name, u.Email, u.FullName })
+                .SingleAsync(cancellationToken);
+
+            var seatIds = issued.Select(i => i.SeatId).ToList();
+            var seats = await db.Seats.AsNoTracking()
+                .Where(s => seatIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.Section, s.Row, s.Number })
+                .ToDictionaryAsync(s => s.Id, cancellationToken);
+
+            var tickets = issued
+                .Select(i => (i.Ticket, Seat: seats[i.SeatId]))
+                .OrderBy(t => t.Seat.Section).ThenBy(t => t.Seat.Row).ThenBy(t => t.Seat.Number)
+                .Select(t => new PurchasedTicket(t.Ticket.Id, $"{t.Seat.Section}-{t.Seat.Row}-{t.Seat.Number}", t.Ticket.Code))
+                .ToList();
+
+            return new TicketPurchased(
+                reservation.Id, reservation.UserId, details.Email, details.FullName, details.Title, details.StartsAt, details.HallName, tickets, now);
         }
 
         /// <summary>Step 5, failure branch: refund, then record the refund under the request's key unless a concurrent request with that key won.</summary>

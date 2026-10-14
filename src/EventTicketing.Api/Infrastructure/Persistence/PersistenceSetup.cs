@@ -14,7 +14,7 @@ public static class PersistenceSetup
         builder.Services.AddOptions<ConnectionStringOptions>()
             .BindConfiguration(ConnectionStringOptions.Section)
             .ValidateDataAnnotations()
-            .Validate(o => !isProduction || !DevOnlyValues.Contains(o.Postgres), DevOnlyValues.RejectionMessage)
+            .Validate(o => !isProduction || !(DevOnlyValues.Contains(o.Postgres) || DevOnlyValues.Contains(o.RabbitMq)), DevOnlyValues.RejectionMessage)
             .ValidateOnStart();
         builder.Services.AddOptions<DatabaseOptions>()
             .BindConfiguration(DatabaseOptions.Section)

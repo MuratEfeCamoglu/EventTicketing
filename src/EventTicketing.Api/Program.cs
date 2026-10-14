@@ -5,6 +5,7 @@ using EventTicketing.Api.Infrastructure.Auth;
 using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Email;
 using EventTicketing.Api.Infrastructure.Locking;
+using EventTicketing.Api.Infrastructure.Messaging;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
@@ -20,6 +21,7 @@ builder.AddSeatLocking();
 builder.AddAuth();
 builder.AddPayments();
 builder.AddEmail();
+builder.AddMessaging();
 
 builder.Services.AddOptions<ReservationOptions>()
     .BindConfiguration(ReservationOptions.Section)

@@ -175,7 +175,16 @@ okunan veriyle verilmez; koltuk tutma ve ödeme her zaman veritabanından okur.
   istek geldi) ödeme iade edilir ve aynı anahtarla `Refunded` kaydı yazılır.
 - Reddedilen ödemede rezervasyon `PaymentFailed` olur ve koltuklar serbest kalır.
 - E-posta commit'ten sonra best-effort gönderilir. SMTP'ye ulaşılamazsa ödeme yanıtı yine `200` olur ve hata loglanır.
-  v3'te outbox ile güvenilir hale getirilecek.
+  V3-2'de bu gönderim aşağıdaki outbox mesajını tüketen Notification servisine taşınır.
+
+### Outbox (v3)
+
+Başarılı ödemede `TicketPurchased` mesajı (`EventTicketing.Contracts`) MassTransit'in EF Core outbox'ı ile ödeme,
+onay ve biletlerle **aynı transaction'da** `outbox_message` tablosuna yazılır: transaction geri alınırsa (ör. onay
+yarışı kaybedildi) mesaj da yoktur. Commit'ten sonra outbox teslim servisi mesajı RabbitMQ'ya iletir; RabbitMQ
+kapalıyken mesaj tabloda bekler ve bağlantı gelince gönderilir. Bağlantı `ConnectionStrings:RabbitMq` (AMQP URI;
+yerelde compose'daki `eventticketing` / `dev-only-rabbitmq` kullanıcısı). Gönderilen mesajlar RabbitMQ yönetim
+arayüzünde (`http://localhost:15672`) `EventTicketing.Contracts:TicketPurchased` exchange'inde görünür.
 
 ## Endpoint özeti
 
@@ -205,7 +214,7 @@ Başkasına ait rezervasyon veya bilete erişim `404` döner; böylece kaydın v
 
 ```bash
 dotnet test tests/EventTicketing.UnitTests          # dış bağımlılık gerektirmez
-dotnet test tests/EventTicketing.IntegrationTests   # docker compose up -d (PostgreSQL + Redis + Mailpit) gerektirir
+dotnet test tests/EventTicketing.IntegrationTests   # docker compose up -d (PostgreSQL, Redis, Mailpit, RabbitMQ) gerektirir
 dotnet test --filter "AC=AC-08.3"                   # tek bir kabul kriterinin testleri
 dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResults/ altına
 ```
@@ -217,8 +226,10 @@ dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResul
   kullanır.
 - Bağlantılar ortam değişkenleriyle değiştirilebilir: `EVENTTICKETING_TEST_POSTGRES` (varsayılan
   `Host=localhost;Port=5432;Username=postgres;Password=dev-only-postgres`), `EVENTTICKETING_TEST_REDIS`
-  (varsayılan `localhost:6379`), `EVENTTICKETING_TEST_MAILPIT` (varsayılan `http://localhost:8025`). Her test
-  koşusu Redis'te kendi anahtar önekini kullanır.
+  (varsayılan `localhost:6379`), `EVENTTICKETING_TEST_MAILPIT` (varsayılan `http://localhost:8025`),
+  `EVENTTICKETING_TEST_RABBITMQ` (varsayılan `amqp://eventticketing:dev-only-rabbitmq@localhost:5672/`). Her test
+  koşusu Redis'te kendi anahtar önekini kullanır. Testlerde outbox teslim servisi kapalıdır; mesajlar
+  `outbox_message` tablosunda incelenir.
 
 Son ölçüm (2026-10-12): 70 unit + 253 integration testi; `EventTicketing.Api` birleşik satır kapsamı **%92,2** (üretilmiş migration dosyaları hariç; hedef ≥ %70, NFR-05).
 

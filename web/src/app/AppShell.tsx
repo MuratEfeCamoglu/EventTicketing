@@ -25,7 +25,7 @@ const linkClasses = ({ isActive }: { isActive: boolean }) =>
   cx('rounded-lg px-3 py-2 text-sm font-medium transition-colors', isActive ? 'bg-brand-soft text-brand' : 'text-ink-soft hover:bg-page hover:text-ink');
 
 /** Page frame: sticky header with the primary navigation (a drawer on phones) and the content area. */
-export function AppShell({ children, nav = publicNav, account }: { children: ReactNode; nav?: NavItem[]; account?: ReactNode }) {
+export function AppShell({ children, nav = publicNav, account, mobileAccount }: { children: ReactNode; nav?: NavItem[]; account?: ReactNode; mobileAccount?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const close = () => setMenuOpen(false);
 
@@ -69,7 +69,7 @@ export function AppShell({ children, nav = publicNav, account }: { children: Rea
               ))}
             </nav>
             <div className="mt-3 border-t border-line pt-3" onClick={close}>
-              {account ?? (
+              {mobileAccount ?? (
                 <Link to="/giris" className={buttonClasses('primary', 'md', 'w-full')}>
                   Giriş yap
                 </Link>

@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cx } from './cx';
 import { Spinner } from './Spinner';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'dangerGhost';
 type Size = 'sm' | 'md';
 
 const variants: Record<Variant, string> = {
@@ -10,6 +10,7 @@ const variants: Record<Variant, string> = {
   secondary: 'bg-surface text-ink border border-line-strong hover:bg-page disabled:text-faint',
   danger: 'bg-danger text-white hover:bg-danger/90 disabled:bg-danger/50',
   ghost: 'text-ink-soft hover:bg-page hover:text-ink disabled:text-faint',
+  dangerGhost: 'text-danger hover:bg-danger-soft disabled:text-faint',
 };
 
 const sizes: Record<Size, string> = {

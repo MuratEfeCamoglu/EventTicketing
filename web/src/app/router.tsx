@@ -1,5 +1,8 @@
 import { createBrowserRouter } from 'react-router';
+import { ReservationsPage } from '../account/ReservationsPage';
+import { TicketsPage } from '../account/TicketsPage';
 import { RequireRole } from '../auth/RequireRole';
+import { ReservationPage } from '../checkout/ReservationPage';
 import { EventPage } from '../events/EventPage';
 import { EventsPage } from '../events/EventsPage';
 import { LoginPage } from '../pages/LoginPage';
@@ -17,8 +20,9 @@ export const router = createBrowserRouter([
       { path: 'etkinlik/:id', element: <EventPage /> },
       { path: 'giris', element: <LoginPage /> },
       { path: 'kayit', element: <RegisterPage /> },
-      { path: 'biletlerim', element: <RequireRole roles={['Customer']}>{placeholder('Biletler yakında.')}</RequireRole> },
-      { path: 'rezervasyonlarim', element: <RequireRole roles={['Customer']}>{placeholder('Rezervasyonlar yakında.')}</RequireRole> },
+      { path: 'rezervasyon/:id', element: <RequireRole roles={['Customer', 'Admin']}><ReservationPage /></RequireRole> },
+      { path: 'biletlerim', element: <RequireRole roles={['Customer']}><TicketsPage /></RequireRole> },
+      { path: 'rezervasyonlarim', element: <RequireRole roles={['Customer']}><ReservationsPage /></RequireRole> },
       { path: 'yonetim', element: <RequireRole roles={['Organizer', 'Admin']}>{placeholder('Yönetim yakında.')}</RequireRole> },
       { path: '*', element: <NotFoundPage /> },
     ],

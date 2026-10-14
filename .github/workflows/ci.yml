@@ -1,0 +1,119 @@
+# F-19 (ISKELET AC-19.1): format, Release build, unit and integration tests, coverage threshold (NFR-05) and publish.
+# Service containers use the same images as compose.yaml; the tests reach them on the same localhost ports.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # NFR-05: EventTicketing.Api line coverage, unit + integration combined.
+  COVERAGE_THRESHOLD: 70
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17.11
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: dev-only-postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7.4.11
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4.3.6-management
+        env:
+          RABBITMQ_DEFAULT_USER: eventticketing
+          RABBITMQ_DEFAULT_PASS: dev-only-rabbitmq
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.31.5
+        ports:
+          - 1025:1025
+          - 8025:8025
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          dotnet tool restore
+          dotnet restore
+
+      - name: Format
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Build (Release, warnings are errors)
+        run: dotnet build -c Release --no-restore
+
+      - name: Unit tests
+        run: >-
+          dotnet test tests/EventTicketing.UnitTests -c Release --no-build
+          --collect:"XPlat Code Coverage" --results-directory TestResults/unit
+
+      - name: Integration tests
+        run: >-
+          dotnet test tests/EventTicketing.IntegrationTests -c Release --no-build
+          --collect:"XPlat Code Coverage" --results-directory TestResults/integration
+
+      - name: Coverage report
+        run: >-
+          dotnet reportgenerator
+          "-reports:TestResults/**/coverage.cobertura.xml"
+          "-targetdir:TestResults/coverage"
+          "-reporttypes:TextSummary;Cobertura;MarkdownSummaryGithub"
+          "-assemblyfilters:+EventTicketing.Api"
+          "-filefilters:-*/Migrations/*"
+
+      # ReportGenerator 5.5 has no threshold option, so the merged line-rate is checked by script (ISKELET R-12).
+      - name: Coverage threshold
+        run: bash scripts/check-coverage.sh TestResults/coverage/Cobertura.xml "$COVERAGE_THRESHOLD"
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f TestResults/coverage/SummaryGithub.md ]; then cat TestResults/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Publish API and Notification service
+        run: |
+          dotnet publish src/EventTicketing.Api -c Release --no-build -o artifacts/api
+          dotnet publish src/EventTicketing.Notifications -c Release --no-build -o artifacts/notifications
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: TestResults/coverage
+          if-no-files-found: ignore

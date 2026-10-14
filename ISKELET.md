@@ -655,7 +655,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 - [x] **V3-1 Outbox:** `EventTicketing.Contracts`, MassTransit + RabbitMQ, EF outbox migration'ı, yerel RabbitMQ kurulumu README'de; AC-17.1.
 - [x] **V3-2 Notification servisi:** Worker projesi, consumer, inbox, retry, `dotnet run` ile yerel çalıştırma; API'den e-posta kodunun kaldırılması; AC-17.2–AC-17.5; F-12 testleri Notification servisi üzerinden çalışacak şekilde taşınır.
 - [x] **V3-3 Observability:** OpenTelemetry + Aspire Dashboard; AC-18.2, AC-18.3.
-- [ ] **V3-4 CI:** `.github/workflows/ci.yml`; F-19; NFR-05 eşiği zorunlu.
+- [x] **V3-4 CI:** `.github/workflows/ci.yml`; F-19; NFR-05 eşiği zorunlu.
 
 *v3 çıkış kriteri:* F-17…F-19 sağlanır; CI `main`'de yeşil; README'de outbox ve observability bölümleri.
 
@@ -721,7 +721,7 @@ Agent'ı bloklamaz; varsayılan değerle ilerlenir, proje sahibi isterse değiş
 
 | Kimlik | Konu | Varsayılan |
 |---|---|---|
-| A-01 | Gerçek repo adı ve GitHub sahibi | `event-ticketing`; CI badge'i V3-4'te gerçek URL ile eklenir |
+| A-01 | Gerçek repo adı ve GitHub sahibi | Çözüldü (2026-10-14): `MuratEfeCamoglu/EventTicketing`; CI badge'i README'de |
 | A-02 | k6 sonuçlarının alınacağı makinenin gerçek özellikleri | V-16; ölçüm anındaki gerçek değerler README'ye yazılır |
 | A-03 | Organizatör olma başvuru akışı istenecek mi | Hayır; Admin rol atar (V-07) |
 | A-04 | Windows'ta Redis 7, RabbitMQ 4 ve Aspire Dashboard'un kurulum yöntemi | Çözüldü (2026-10-13): hepsi `compose.yaml` ile Docker'da (K-10) |

@@ -1,5 +1,7 @@
 # EventTicketing
 
+[![CI](https://github.com/MuratEfeCamoglu/EventTicketing/actions/workflows/ci.yml/badge.svg)](https://github.com/MuratEfeCamoglu/EventTicketing/actions/workflows/ci.yml)
+
 Etkinlik ve bilet rezervasyon API'si. Kullanıcı etkinlik arar, koltuğu 10 dakika tutar, mock ödeme yapar, QR kodlu
 bilet ve e-posta alır.
 
@@ -11,7 +13,8 @@ sorusunun cevabı [`CreateReservation.cs`](src/EventTicketing.Api/Features/Reser
 dosyalarındadır.
 
 > Durum: **MVP** tamam (ISKELET.md §9, M1–M9); **v2** tamam (Redis + HybridCache, Redis lock, arka plan
-> temizleyicisi, tek komutla yerel çalıştırma). Outbox + bildirim servisi ve CI sonraki görevlerdedir.
+> temizleyicisi, tek komutla yerel çalıştırma); **v3** tamam (EF outbox + RabbitMQ, Notification servisi,
+> OpenTelemetry → Aspire Dashboard, GitHub Actions CI). Sırada bonus görevler var.
 
 ## Teknoloji
 
@@ -272,7 +275,29 @@ dotnet test --collect:"XPlat Code Coverage"         # Cobertura raporu TestResul
   Her test koşusu RabbitMQ'da kendi sanal host'unu (`eventticketing-test-<guid>`) açar ve sonunda siler; bu yüzden
   testler, aynı anda çalışan geliştirme Notification servisinden etkilenmez.
 
-Son ölçüm (2026-10-12): 70 unit + 253 integration testi; `EventTicketing.Api` birleşik satır kapsamı **%92,2** (üretilmiş migration dosyaları hariç; hedef ≥ %70, NFR-05).
+Son ölçüm (2026-10-14): 71 unit + 278 integration testi; `EventTicketing.Api` birleşik satır kapsamı **%91,7** (üretilmiş migration dosyaları hariç; hedef ≥ %70, NFR-05).
+
+### CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) `main`'e her push'ta ve her PR'da `ubuntu-latest` üzerinde
+çalışır; adımlardan biri başarısızsa iş kırmızıdır:
+
+1. `dotnet format --verify-no-changes`
+2. Release build (uyarılar hata sayılır)
+3. Unit ve integration testleri, coverage toplanarak. PostgreSQL, Redis, RabbitMQ ve Mailpit, `compose.yaml` ile aynı
+   imaj sürümlerinde service container olarak çalışır.
+4. Coverage eşiği: ReportGenerator raporları birleştirir, [`scripts/check-coverage.sh`](scripts/check-coverage.sh)
+   `EventTicketing.Api` satır kapsamı %70'in altındaysa işi kırar. Özet, işin "Summary" sayfasında görünür.
+5. API ve Notification servisinin `dotnet publish -c Release` çıktısı
+
+Aynı eşik kontrolü yerelde de çalışır:
+
+```bash
+dotnet test -c Release --collect:"XPlat Code Coverage" --results-directory TestResults
+dotnet reportgenerator "-reports:TestResults/**/coverage.cobertura.xml" -targetdir:TestResults/coverage \
+  "-reporttypes:TextSummary;Cobertura" -assemblyfilters:+EventTicketing.Api "-filefilters:-*/Migrations/*"
+./scripts/check-coverage.sh TestResults/coverage/Cobertura.xml 70
+```
 
 ## Lisans
 

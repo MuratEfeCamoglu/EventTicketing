@@ -660,7 +660,7 @@ Görevler sırayla yapılır. Agent bir görevi "Bitti" tanımını (AGENT.md §
 *v3 çıkış kriteri:* F-17…F-19 sağlanır; CI `main`'de yeşil; README'de outbox ve observability bölümleri.
 
 ### Aşama 4 — Bonus (1 hafta)
-- [ ] **B-1 Rate limiting:** AC-20.1.
+- [x] **B-1 Rate limiting:** AC-20.1.
 - [ ] **B-2 API versioning:** AC-20.2.
 - [ ] **B-3 Health check'ler:** AC-20.3.
 - [ ] **B-4 Yük testi:** AC-20.4; `docs/load-test-results.md` + README tablosu.

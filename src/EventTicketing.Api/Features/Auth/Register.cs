@@ -2,6 +2,7 @@ using EventTicketing.Api.Common;
 using EventTicketing.Api.Domain;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Persistence;
+using EventTicketing.Api.Infrastructure.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -65,6 +66,7 @@ public static class Register
                     (await handler.HandleAsync(request, cancellationToken)).ToHttpResult(response => TypedResults.Created((string?)null, response)))
                 .AddEndpointFilter<ValidationFilter<Request>>()
                 .AllowAnonymous()
+                .RequireRateLimiting(RateLimitingSetup.AuthPolicy)
                 .WithTags("Auth");
     }
 }

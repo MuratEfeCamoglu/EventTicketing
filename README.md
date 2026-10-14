@@ -227,6 +227,16 @@ Dashboard**'a gönderir: `http://localhost:18888`. Development ayarlarında `OTE
 - **Loglar:** Serilog konsola ek olarak OTLP'ye de yazar; Dashboard'da trace ile ilişkilendirilmiş görünür.
 - Redis komutları trace'e eklenmez: `OpenTelemetry.Instrumentation.StackExchangeRedis`'in kararlı sürümü yok.
 
+### Rate limiting (bonus)
+
+ASP.NET Core rate limiting, bir dakikalık sabit pencerelerle:
+- `POST /auth/login` ve `POST /auth/register`: IP başına toplam 10 istek
+- `POST /events/{id}/reservations`: kullanıcı başına 30 istek
+
+Sınırı aşan istek `429` + `rate_limit.exceeded` ProblemDetails ve `Retry-After` başlığı (saniye) alır.
+`RateLimiting:Enabled=false` ile kapatılır; integration testleri ve k6 koşuları kapalı çalışır
+(k6 için `RateLimiting__Enabled=false` ortam değişkeni).
+
 ## Endpoint özeti
 
 Tüm yollar `/api/v1` önekiyle sunulur. Tam sözleşme `/openapi/v1.json` ve Scalar UI'dadır.

@@ -4,6 +4,7 @@ using EventTicketing.Api.Infrastructure.Caching;
 using EventTicketing.Api.Infrastructure.Locking;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Persistence;
+using EventTicketing.Api.Infrastructure.RateLimiting;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -163,6 +164,7 @@ public static class CreateReservation
                         .ToHttpResult(response => TypedResults.Created($"{EndpointRegistration.ApiPrefix}/reservations/{response.ReservationId}", response)))
                 .AddEndpointFilter<ValidationFilter<Request>>()
                 .RequireAuthorization(Policies.Customer)
+                .RequireRateLimiting(RateLimitingSetup.ReservationsPolicy)
                 .WithTags("Reservations");
     }
 }

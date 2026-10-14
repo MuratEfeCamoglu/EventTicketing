@@ -8,6 +8,7 @@ using EventTicketing.Api.Infrastructure.Messaging;
 using EventTicketing.Api.Infrastructure.Observability;
 using EventTicketing.Api.Infrastructure.Payments;
 using EventTicketing.Api.Infrastructure.Persistence;
+using EventTicketing.Api.Infrastructure.RateLimiting;
 using FluentValidation;
 using Scalar.AspNetCore;
 
@@ -20,6 +21,7 @@ builder.AddCaching();
 builder.AddSeatLocking();
 builder.AddAuth();
 builder.AddPayments();
+builder.AddEventTicketingRateLimiting();
 builder.AddMessaging();
 
 builder.Services.AddOptions<ReservationOptions>()
@@ -46,6 +48,7 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseEventTicketingRateLimiting();
 
 app.MapOpenApi();
 if (app.Environment.IsDevelopment())

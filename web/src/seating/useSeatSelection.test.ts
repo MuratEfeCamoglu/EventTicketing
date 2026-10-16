@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SeatDto } from '../api/types';
-import { useSeatSelection } from './useSeatSelection';
+import { MAX_SEATS, rememberSelection, useSeatSelection } from './useSeatSelection';
 
 const seat = (n: number): SeatDto => ({ eventSeatId: `s${n}`, section: 'Salon', row: 'A', number: n, price: 750, status: 'Available' });
 
@@ -56,5 +56,17 @@ describe('useSeatSelection', () => {
 
     expect(outcome).toBe('added');
     expect(result.current.selected.map((s) => s.eventSeatId)).toEqual(['s2', 's3']);
+  });
+
+  it('restores the seats remembered before the login detour, once', () => {
+    rememberSelection('e1', [seat(1), seat(2)]);
+
+    const first = renderHook(() => useSeatSelection(MAX_SEATS, 'e1'));
+    expect(first.result.current.selected.map((s) => s.eventSeatId)).toEqual(['s1', 's2']);
+    first.unmount();
+
+    const again = renderHook(() => useSeatSelection(MAX_SEATS, 'e1'));
+    expect(again.result.current.selected).toEqual([]);
+    expect(renderHook(() => useSeatSelection(MAX_SEATS, 'other')).result.current.selected).toEqual([]);
   });
 });

@@ -13,7 +13,7 @@ import { useToast } from '../ui/Toast';
 import { SeatMap } from './SeatMap';
 import { SelectionBar, SelectionPanel } from './SelectionSummary';
 import { useHoldSeats } from './useHoldSeats';
-import { MAX_SEATS, useSeatSelection } from './useSeatSelection';
+import { MAX_SEATS, rememberSelection, useSeatSelection } from './useSeatSelection';
 
 /** The map refreshes on its own so seats taken by others show up (design §6.3). */
 const REFRESH_MS = 15_000;
@@ -28,7 +28,7 @@ export function SeatSelection({ eventId, hall }: { eventId: string; hall: HallDe
     queryFn: () => api<SeatDto[]>(`/events/${eventId}/seats`, { anonymous: true }),
     refetchInterval: REFRESH_MS,
   });
-  const selection = useSeatSelection();
+  const selection = useSeatSelection(MAX_SEATS, eventId);
   const hold = useHoldSeats(eventId, selection.remove);
   const sectionOrder = useMemo(() => hall.sections.map((s) => s.name), [hall]);
 
@@ -48,6 +48,7 @@ export function SeatSelection({ eventId, hall }: { eventId: string; hall: HallDe
 
   function holdSeats() {
     if (!session) {
+      rememberSelection(eventId, chosen);
       navigate(loginPath(location.pathname));
       return;
     }
@@ -60,7 +61,7 @@ export function SeatSelection({ eventId, hall }: { eventId: string; hall: HallDe
         <Info className="mt-0.5 size-4 shrink-0" />
         <span>
           Bilet almak için müşteri hesabıyla girin.{' '}
-          <Link to={loginPath(location.pathname)} className="font-semibold underline">
+          <Link to={loginPath(location.pathname)} onClick={() => rememberSelection(eventId, chosen)} className="font-semibold underline">
             Hesap değiştir
           </Link>
         </span>

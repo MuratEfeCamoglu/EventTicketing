@@ -48,7 +48,8 @@ function EventForm({ eventId, initial, status }: { eventId?: string; initial: Ev
   const venues = useQuery({ queryKey: ['venues', 'all'], queryFn: () => api<Paged<VenueListItem>>('/venues?pageSize=100', { anonymous: true }) });
   const venue = useQuery({ queryKey: ['venue', values.venueId], queryFn: () => api<VenueDetail>(`/venues/${values.venueId}`, { anonymous: true }), enabled: !!values.venueId });
   const hall = useQuery({ queryKey: ['hall', values.hallId], queryFn: () => api<HallDetail>(`/halls/${values.hallId}`, { anonymous: true }), enabled: !!values.hallId });
-  const sections = hall.data?.sections.map((s) => s.name) ?? [];
+  // Undefined until the chosen hall is loaded; saving waits for it (validateEventForm).
+  const sections = hall.data?.sections.map((s) => s.name);
 
   const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) => setValues((v) => ({ ...v, [key]: value }));
   const errorOf = (key: string, apiKey = key) => errors[key] ?? fieldError(serverError, apiKey);
@@ -61,7 +62,7 @@ function EventForm({ eventId, initial, status }: { eventId?: string; initial: Ev
     if (Object.keys(found).length > 0) return;
     setSaving(true);
     try {
-      const request = toEventRequest(values, sections);
+      const request = toEventRequest(values, sections ?? []);
       if (eventId) await api(`/events/${eventId}`, { method: 'PUT', json: request });
       else await api('/events', { method: 'POST', json: request });
       toast.success(eventId ? 'Etkinlik güncellendi.' : 'Etkinlik taslak olarak oluşturuldu.');
@@ -139,6 +140,8 @@ function EventForm({ eventId, initial, status }: { eventId?: string; initial: Ev
               <p className="rounded-lg bg-page px-3 py-3 text-sm text-muted">Salon seçince bölümler burada listelenir.</p>
             ) : hall.isPending ? (
               <p className="text-sm text-muted">Bölümler yükleniyor…</p>
+            ) : !sections ? (
+              <p className="rounded-lg bg-danger-soft px-3 py-3 text-sm text-danger">Salonun bölümleri yüklenemedi: {messageFor(hall.error)}</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-3">
                 {sections.map((section) => (
@@ -168,7 +171,7 @@ function EventForm({ eventId, initial, status }: { eventId?: string; initial: Ev
             <Link to="/yonetim/etkinlikler" className="inline-flex h-10 items-center rounded-lg px-4 text-sm font-semibold text-ink-soft hover:bg-page">
               Vazgeç
             </Link>
-            <Button type="submit" loading={saving}>
+            <Button type="submit" loading={saving} disabled={!!values.hallId && hall.isPending}>
               <Save className="size-4" /> {eventId ? 'Değişiklikleri kaydet' : 'Taslak olarak kaydet'}
             </Button>
           </div>

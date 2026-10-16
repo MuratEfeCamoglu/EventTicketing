@@ -3,11 +3,19 @@ import { QrCode } from 'lucide-react';
 import { apiBlob } from '../api/client';
 import { cx } from '../ui/cx';
 
+/** A data URL lives as long as the cached string, unlike an object URL, which leaks unless it is revoked. */
+async function toDataUrl(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:${blob.type || 'image/png'};base64,${btoa(binary)}`;
+}
+
 /** The ticket's QR PNG; the endpoint needs the bearer token, so it is fetched as a blob (design §6.5). */
 export function TicketQr({ ticketId, label, className }: { ticketId: string; label: string; className?: string }) {
   const qr = useQuery({
     queryKey: ['qr', ticketId],
-    queryFn: async () => URL.createObjectURL(await apiBlob(`/tickets/${ticketId}/qr`)),
+    queryFn: async () => toDataUrl(await apiBlob(`/tickets/${ticketId}/qr`)),
     staleTime: Infinity,
     gcTime: Infinity,
   });

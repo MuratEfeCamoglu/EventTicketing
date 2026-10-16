@@ -15,27 +15,28 @@ type TokenResponse = { accessToken: string; accessTokenExpiresAt: string; refres
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-/** One refresh at a time: concurrent 401s wait for the same POST /auth/refresh (design §8). */
+/**
+ * One refresh at a time: concurrent 401s wait for the same POST /auth/refresh (design §8). Resolves false when the API
+ * rejects the refresh token (the session is over); rejects when the API cannot be reached or fails with 5xx, so the
+ * session survives an offline moment and the caller sees that error instead of a logout.
+ */
 function refreshTokens(): Promise<boolean> {
   refreshInFlight ??= (async () => {
     const tokens = getTokens();
     if (!tokens) return false;
-    try {
-      const response = await fetch(`${API_PREFIX}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...TUNNEL_HEADERS },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-      });
-      if (!response.ok) {
-        clearTokens();
-        return false;
-      }
-      const next = (await response.json()) as TokenResponse;
-      setTokens({ accessToken: next.accessToken, refreshToken: next.refreshToken });
-      return true;
-    } catch {
+    const response = await fetch(`${API_PREFIX}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...TUNNEL_HEADERS },
+      body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+    });
+    if (response.status >= 500) throw await ApiError.fromResponse(response);
+    if (!response.ok) {
+      clearTokens();
       return false;
     }
+    const next = (await response.json()) as TokenResponse;
+    setTokens({ accessToken: next.accessToken, refreshToken: next.refreshToken });
+    return true;
   })().finally(() => {
     refreshInFlight = null;
   });

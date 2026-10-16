@@ -24,6 +24,7 @@ describe('safeReturnPath', () => {
   it('keeps same-site paths and drops anything else', () => {
     expect(safeReturnPath('/etkinlik/1?x=2')).toBe('/etkinlik/1?x=2');
     expect(safeReturnPath('//evil.example')).toBe('/');
+    expect(safeReturnPath('/\\evil.example')).toBe('/');
     expect(safeReturnPath('https://evil.example')).toBe('/');
     expect(safeReturnPath(null)).toBe('/');
   });

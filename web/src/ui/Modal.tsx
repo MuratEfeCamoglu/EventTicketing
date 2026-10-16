@@ -1,4 +1,4 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Button } from './Button';
 
 type ModalProps = {
@@ -13,21 +13,52 @@ type ModalProps = {
   onClose: () => void;
 };
 
-/** Confirmation dialog for irreversible actions (design §7). Escape and the backdrop close it. */
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Confirmation dialog for irreversible actions (design §7). Escape and the backdrop close it; Tab stays inside it while
+ * it is open, and focus returns to the element that opened it.
+ */
 export function Modal({ open, title, children, confirmLabel, cancelLabel = 'Vazgeç', tone = 'primary', busy, onConfirm, onClose }: ModalProps) {
   const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Tab' || !dialog.current) return;
+      const items = [...dialog.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      const outside = !dialog.current.contains(document.activeElement);
+      if (e.shiftKey && (outside || document.activeElement === first)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (outside || document.activeElement === last)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // The opener is read before the dialog takes the focus (so no autoFocus); the cleanup runs when the dialog closes
+  // (or unmounts) and gives the focus back to it.
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.current?.querySelector<HTMLElement>('[data-initial-focus]')?.focus();
+    return () => opener?.focus();
+  }, [open]);
 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center" onClick={onClose}>
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -42,7 +73,7 @@ export function Modal({ open, title, children, confirmLabel, cancelLabel = 'Vazg
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             {cancelLabel}
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={busy} autoFocus>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={busy} data-initial-focus>
             {confirmLabel}
           </Button>
         </div>

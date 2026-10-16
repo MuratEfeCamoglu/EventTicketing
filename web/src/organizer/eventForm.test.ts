@@ -78,4 +78,10 @@ describe('validateEventForm', () => {
       'price:Salon': 'Fiyat en fazla 100.000 ₺ olabilir.',
     });
   });
+
+  it('refuses to save while the hall sections are still unknown', () => {
+    const errors = validateEventForm({ ...values, prices: {} }, undefined);
+
+    expect(errors.hallId).toBe('Salonun bölümleri yüklenemedi; biraz bekleyip tekrar deneyin.');
+  });
 });

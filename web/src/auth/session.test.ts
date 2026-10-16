@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeJwt } from '../test/jwt';
-import { decodeSession } from './session';
+import { decodeSession, subscribe } from './session';
 
 describe('decodeSession', () => {
   it('decodes sub, email, role and exp', () => {
@@ -12,5 +12,19 @@ describe('decodeSession', () => {
       role: 'Organizer',
       expiresAt: new Date(1_800_000_000 * 1000),
     });
+  });
+});
+
+describe('subscribe', () => {
+  it('hears a login or logout made in another tab', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribe(listener);
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'et.session' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'something-else' }));
+    unsubscribe();
+    window.dispatchEvent(new StorageEvent('storage', { key: 'et.session' }));
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

@@ -45,10 +45,20 @@ export function clearTokens(): void {
   setTokens(null);
 }
 
-/** Notifies when tokens change (login, refresh, logout, expiry). Returns an unsubscribe function. */
+/**
+ * Notifies when tokens change (login, refresh, logout, expiry), including changes made in another tab, which reach
+ * this one as a storage event. Returns an unsubscribe function.
+ */
 export function subscribe(listener: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY || event.key === null) listener();
+  };
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener('storage', onStorage);
+  };
 }
 
 export function currentSession(): Session | null {

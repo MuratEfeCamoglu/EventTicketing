@@ -84,16 +84,18 @@ export function fromEvent(event: EventDetail, hall: HallDetail): EventFormValues
 }
 
 /** Field → Turkish message; price errors are keyed "price:<section>". Mirrors the API rules so they rarely reach it. */
-export function validateEventForm(values: EventFormValues, sections: string[]): Record<string, string> {
+export function validateEventForm(values: EventFormValues, sections: string[] | undefined): Record<string, string> {
   const errors: Record<string, string> = {};
   const title = values.title.trim();
   if (!title || title.length > TITLE_MAX) errors.title = 'Başlık girin (en fazla 200 karakter).';
   if (values.description.length > DESCRIPTION_MAX) errors.description = 'Açıklama en fazla 4.000 karakter olabilir.';
   if (!values.hallId) errors.hallId = 'Bir salon seçin.';
+  // Without the hall's sections no price can be checked, and the API would refuse the event for missing prices.
+  else if (!sections) errors.hallId = 'Salonun bölümleri yüklenemedi; biraz bekleyip tekrar deneyin.';
   if (!values.startsAt) errors.startsAt = 'Başlangıç zamanını girin.';
   if (!values.endsAt) errors.endsAt = 'Bitiş zamanını girin.';
   else if (values.startsAt && new Date(values.endsAt) <= new Date(values.startsAt)) errors.endsAt = 'Bitiş, başlangıçtan sonra olmalı.';
-  for (const section of sections) {
+  for (const section of sections ?? []) {
     const text = values.prices[section]?.trim() ?? '';
     const price = parsePrice(text);
     if (text && Number.isNaN(price)) errors[`price:${section}`] = 'Fiyatı 1.250,50 ya da 19,99 biçiminde girin.';

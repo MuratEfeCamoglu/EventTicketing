@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SeatDto } from '../api/types';
 
 /** The API limit of seats per reservation (ISKELET Reservations:MaxSeatsPerReservation). */
@@ -6,10 +6,42 @@ export const MAX_SEATS = 6;
 
 export type ToggleOutcome = 'added' | 'removed' | 'limit';
 
-export function useSeatSelection(max = MAX_SEATS) {
-  const [selected, setSelected] = useState<SeatDto[]>([]);
+const storageKey = (eventId: string) => `et.selection.${eventId}`;
+
+/** Keeps the chosen seats across the login page, which a guest visits before holding them (sessionStorage: this tab). */
+export function rememberSelection(eventId: string, seats: SeatDto[]): void {
+  try {
+    sessionStorage.setItem(storageKey(eventId), JSON.stringify(seats));
+  } catch {
+    // Storage unavailable (private mode): the guest picks the seats again after logging in.
+  }
+}
+
+function remembered(eventId: string | undefined): SeatDto[] {
+  if (!eventId) return [];
+  try {
+    const raw = sessionStorage.getItem(storageKey(eventId));
+    return raw ? (JSON.parse(raw) as SeatDto[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Selected seats; with an eventId, starts from the seats remembered for that event and then forgets them. */
+export function useSeatSelection(max = MAX_SEATS, eventId?: string) {
+  const [selected, setSelected] = useState<SeatDto[]>(() => remembered(eventId));
   // Mirror of the state, so toggle can report its outcome synchronously.
-  const current = useRef<SeatDto[]>([]);
+  const current = useRef<SeatDto[]>(selected);
+
+  // Removed after the first render rather than while reading, so a StrictMode double render still restores them.
+  useEffect(() => {
+    if (!eventId) return;
+    try {
+      sessionStorage.removeItem(storageKey(eventId));
+    } catch {
+      // Storage unavailable: nothing was remembered.
+    }
+  }, [eventId]);
 
   const commit = useCallback((next: SeatDto[]) => {
     current.current = next;

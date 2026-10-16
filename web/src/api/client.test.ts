@@ -91,4 +91,13 @@ describe('api', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).retryAfterSeconds).toBe(17);
   });
+
+  it('keeps the session when the refresh call cannot reach the server', async () => {
+    fetchMock.mockResolvedValueOnce(json(401, { status: 401, code: 'auth.unauthorized' })).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const error = await api('/me/tickets').catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TypeError);
+    expect(getTokens()?.refreshToken).toBe('r1');
+  });
 });

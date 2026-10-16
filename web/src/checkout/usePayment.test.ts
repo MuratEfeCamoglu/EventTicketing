@@ -58,4 +58,18 @@ describe('usePayment', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the key when the API fails with 5xx, because the charge may have happened', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('', { status: 503 })).mockResolvedValueOnce(ok());
+    const { result } = renderHook(() => usePayment('r1'));
+
+    await act(async () => {
+      await result.current.pay('tok_success').catch(() => undefined);
+    });
+    await act(async () => {
+      await result.current.pay('tok_success');
+    });
+
+    expect(keyOf(fetchMock.mock.calls[1]!)).toBe(keyOf(fetchMock.mock.calls[0]!));
+  });
 });

@@ -28,8 +28,9 @@ export function usePayment(reservationId: string) {
           return result;
         })
         .catch((error: unknown) => {
-          // The API answered (declined, expired, …): this attempt is over. A network error keeps the key for the retry.
-          if (error instanceof ApiError) key.current = null;
+          // The API answered (declined, expired, …): this attempt is over. A network error or a 5xx (the charge may
+          // have happened before the failure) keeps the key, so the retry cannot charge twice.
+          if (error instanceof ApiError && error.status < 500) key.current = null;
           throw error;
         })
         .finally(() => {

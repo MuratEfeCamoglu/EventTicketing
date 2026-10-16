@@ -14,9 +14,9 @@ const demoAccounts = [
   { email: 'admin@example.com', label: 'Admin', description: 'Mekân, salon ve roller', icon: ShieldCheck },
 ];
 
-/** Only same-site paths are accepted as the return address. */
+/** Only same-site paths are accepted as the return address; browsers read "/\host" like "//host". */
 export function safeReturnPath(value: string | null): string {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/';
+  return value && value.startsWith('/') && value[1] !== '/' && value[1] !== '\\' ? value : '/';
 }
 
 export function LoginPage() {

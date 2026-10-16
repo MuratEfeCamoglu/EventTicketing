@@ -25,6 +25,47 @@ Compose ile çalışır; API `dotnet run` ile.
 
 ## Çalıştırma
 
+### Hızlı başlatma ve durdurma (kopyala-yapıştır)
+
+Her komut **proje kökünde**, **PowerShell**'de çalışır; Docker Desktop açık olmalıdır. Ayrıntılar aşağıdaki bölümlerde.
+
+**Başlatma** — her `dotnet run` / `npm` / `ngrok` komutu kendi penceresinde açık kalır:
+
+```powershell
+# 1) Docker servisleri: PostgreSQL, Redis, RabbitMQ, Mailpit, Aspire Dashboard (hazır olana kadar bekler)
+docker compose up -d --wait
+
+# 2) API — 1. pencere (http://localhost:8080, Scalar: /scalar)
+dotnet run --project src/EventTicketing.Api
+
+# 3) Bilet e-postası servisi — 2. pencere (e-postalar: http://localhost:8025)
+dotnet run --project src/EventTicketing.Notifications
+
+# 4) Web sitesini bu bilgisayarda açmak için — 3. pencere (http://localhost:5173)
+cd web; npm run dev
+
+# 5) Siteyi internette paylaşmak için — 4. pencere (Vercel'deki site buna bağlanır)
+ngrok http 8080 --url https://handling-treading-molasses.ngrok-free.dev
+```
+
+İnternette paylaşım için 1–3 ve 5. adımları tek komutla yapan betik:
+`./scripts/share.ps1 -Domain handling-treading-molasses.ngrok-free.dev`
+
+**Kontrol:**
+
+```powershell
+docker compose ps                                   # hepsi "running" / "healthy"
+curl.exe http://localhost:8080/health/ready         # "Healthy" ise API hazır
+```
+
+**Durdurma** — önce açık pencerelerde `Ctrl+C` (ilk olarak ngrok: internete açılan kapı odur), sonra:
+
+```powershell
+docker compose stop      # veriler kalır; tekrar başlatınca her şey olduğu gibi gelir
+```
+
+Yalnız Docker'ı kapatmak yetmez: API ve ngrok açık kalırsa site internetten açılır ama hata verir.
+
 ### Önkoşullar
 
 | Araç | Not |

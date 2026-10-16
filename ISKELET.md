@@ -686,6 +686,7 @@ Plan: `docs/superpowers/plans/2026-10-14-web-frontend.md`.
 - [x] **W-7 Organizatör ekranları.**
 - [x] **W-8 Admin ekranları;** AC-21.4.
 - [x] **W-9 Uçtan uca doğrulama ve ekran görüntüleri;** AC-21.5.
+- [x] **W-10 İnternette paylaşım (proje sahibinin talebi, 2026-10-16):** web sitesi Vercel'de, backend bu bilgisayarda; ngrok sabit adresli tünel, `web/vercel.json` yönlendirmesi, `scripts/share.ps1`; tünel arkasında per-IP hız sınırı (AC-20.1) gerçek ziyaretçi IP'siyle.
 
 ---
 

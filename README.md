@@ -118,6 +118,36 @@ Giriş ekranındaki **Demo hesapları** ile müşteri, organizatör ya da admin 
 Tarayıcıda ölçülen (Edge, bu makine): 5.000 koltuklu haritanın açılması ~1,2 sn (masaüstü) / ~1,5 sn (telefon
 öykünmesi; veri indirme dahil), koltuk seçme tepkisi ~160 ms. 360 px genişlikte hiçbir sayfa yatay taşmaz.
 
+### Siteyi internette paylaşma (Vercel + ngrok)
+
+Web sitesi Vercel'de yayınlanır; backend (API, Notification servisi, Docker servisleri) bu bilgisayarda çalışır ve
+ngrok tüneliyle sabit bir adresten internete açılır. Vercel'deki site `/api` isteklerini `web/vercel.json`'daki
+yönlendirmeyle bu adrese iletir (aynı adres üzerinden; CORS gerekmez). **Site yalnız bu bilgisayar açıkken ve aşağıdaki
+betik çalışırken çalışır**; tünel kapalıyken site açılır ama veri gelmez.
+
+Bir kez yapılır:
+1. ngrok hesabı açın, `ngrok config add-authtoken <token>` çalıştırın, panelde ücretsiz sabit alan adınızı alın ve
+   `web/vercel.json`'daki `destination` adresine yazın (şu an `handling-treading-molasses.ngrok-free.dev`).
+2. Vercel'de **Add New → Project** ile bu GitHub reposunu içe aktarın; **Root Directory** = `web` (Vite, `npm run build`,
+   çıktı `dist` `vercel.json`'dan gelir). Sonraki her `main` push'unda site kendiliğinden güncellenir.
+
+Paylaşmak istediğiniz her seferde (PowerShell, proje kökünde; Docker Desktop açık):
+
+```powershell
+./scripts/share.ps1 -Domain handling-treading-molasses.ngrok-free.dev
+```
+
+Betik Docker servislerini, Notification servisini ve API'yi başlatır, API hazır olunca tüneli açar. Tünel penceresini
+kapatınca paylaşım biter. Gelen istekler `http://127.0.0.1:4040` adresinde izlenebilir.
+
+Notlar:
+- Ön yüz her istekte `ngrok-skip-browser-warning` başlığını gönderir; ngrok'un ücretsiz katmanı bu başlık olmadan
+  tarayıcı isteklerine API yerine bir uyarı sayfası döndürür.
+- Tünelden gelen isteklerde giriş/kayıt hız sınırı, `X-Forwarded-For`'daki gerçek ziyaretçi IP'sine göre uygulanır
+  (yalnız tünel ajanından, yani loopback'ten gelen başlığa güvenilir).
+- Bu bir demo paylaşımıdır: demo hesapların (admin dahil) parolaları giriş sayfasında görünür ve veriler bu
+  bilgisayardaki Docker veritabanındadır. Tünel yalnız API'yi (8080) açar; diğer servisler dışarıya kapalıdır.
+
 ### Notification servisi (v3)
 
 ```bash

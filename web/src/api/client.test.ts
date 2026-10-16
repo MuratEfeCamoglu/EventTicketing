@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeJwt } from '../test/jwt';
 import { getTokens, setTokens } from '../auth/session';
-import { api } from './client';
+import { api, apiBlob } from './client';
 import { ApiError } from './errors';
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -60,6 +60,17 @@ describe('api', () => {
     await Promise.all([api('/me/tickets'), api('/me/reservations')]);
 
     expect(calls('/api/v1/auth/refresh')).toHaveLength(1);
+  });
+
+  it('asks the ngrok tunnel to skip its browser warning page on every call', async () => {
+    fetchMock.mockResolvedValueOnce(json(200, {})).mockResolvedValueOnce(new Response('png'));
+
+    await api('/events', { anonymous: true });
+    await apiBlob('/tickets/t1/qr');
+
+    for (const call of fetchMock.mock.calls) {
+      expect(new Headers(call[1]!.headers).get('ngrok-skip-browser-warning')).toBe('true');
+    }
   });
 
   it('sends Idempotency-Key when given', async () => {

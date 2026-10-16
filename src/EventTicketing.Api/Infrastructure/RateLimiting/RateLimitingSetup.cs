@@ -36,7 +36,7 @@ public static class RateLimitingSetup
         builder.Services.AddRateLimiter(options =>
         {
             options.AddPolicy(AuthPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                ClientAddress.Of(context),
                 _ => FixedWindow(AuthPermitsPerWindow)));
 
             options.AddPolicy(ReservationsPolicy, context => RateLimitPartition.GetFixedWindowLimiter(

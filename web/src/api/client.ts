@@ -3,6 +3,12 @@ import { ApiError } from './errors';
 
 export const API_PREFIX = '/api/v1';
 
+/**
+ * Sent on every call: behind the ngrok tunnel (design W-10) the free tier answers browser requests with a warning page
+ * instead of the API unless this header is present. It has no effect anywhere else.
+ */
+const TUNNEL_HEADERS = { 'ngrok-skip-browser-warning': 'true' } as const;
+
 export type ApiInit = Omit<RequestInit, 'body'> & { json?: unknown; idempotencyKey?: string; anonymous?: boolean };
 
 type TokenResponse = { accessToken: string; accessTokenExpiresAt: string; refreshToken: string };
@@ -17,7 +23,7 @@ function refreshTokens(): Promise<boolean> {
     try {
       const response = await fetch(`${API_PREFIX}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...TUNNEL_HEADERS },
         body: JSON.stringify({ refreshToken: tokens.refreshToken }),
       });
       if (!response.ok) {
@@ -40,6 +46,7 @@ function buildRequest(init: ApiInit, tokens: Tokens | null): RequestInit {
   const { json, idempotencyKey, anonymous, headers, ...rest } = init;
   const merged = new Headers(headers);
   merged.set('Accept', 'application/json');
+  for (const [name, value] of Object.entries(TUNNEL_HEADERS)) merged.set(name, value);
   if (json !== undefined) merged.set('Content-Type', 'application/json');
   if (idempotencyKey) merged.set('Idempotency-Key', idempotencyKey);
   if (tokens && !anonymous) merged.set('Authorization', `Bearer ${tokens.accessToken}`);
